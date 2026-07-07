@@ -1,0 +1,19 @@
+assets/extract-flow-illustrations/manifest.jsonl
+  s_e4acd7b1b001ad::t_ff041ab4573c38 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "853603e08ae08388e15cc7c1e9863296dd686c38",
+  "prompts": {},
+  "sessions": {
+    "s_e4acd7b1b001ad": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3c27-d698-7112-be40-ec4947e842c0",
+        "model": "unknown"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
