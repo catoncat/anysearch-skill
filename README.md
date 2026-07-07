@@ -106,12 +106,25 @@ $CMD search "AAPL" --domain finance --sub_domain finance.quote \
 
 **Keys when anonymous access is not enough**
 
+By default, if no active key can serve a request, the CLI **auto-registers** a
+throwaway account and creates a key for you (`auto_register` is on out of the
+box). This keeps the first run frictionless — you can search and extract
+without manually signing up — but it does mean a real account + API key are
+created and stored in your local key-state file on the first probe that needs
+one. If you'd rather stay anonymous or control signups yourself:
+
 ```bash
-$CMD keys status
+# turn auto-register off (persists)
+$CMD keys config --auto_register false
+# then register explicitly only when you choose to
 $CMD register
-$CMD keys config --rotation round-robin
+# or pass it per-call
 $CMD --auto_register search "current US inflation rate" --format compact
 ```
+
+The key never leaves your machine; see [Key state](#key-state) below for where
+it is stored and how to inspect/prune the pool (`$CMD keys status`,
+`$CMD keys prune`).
 
 ## How this differs from official AnySearch
 
