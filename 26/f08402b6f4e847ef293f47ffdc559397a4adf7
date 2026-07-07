@@ -1,0 +1,20 @@
+README.md
+  s_4cb81c9c005bbf::t_eb32ea8412f87a 109-115,117-119,121,125-127
+  s_4cb81c9c005bbf::t_e2b653dbe471f3 128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "26f08402b6f4e847ef293f47ffdc559397a4adf7",
+  "prompts": {},
+  "sessions": {
+    "s_4cb81c9c005bbf": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3bff-c9c8-7e84-9b02-ad5eb7f0ac8b",
+        "model": "glm-5.2:cloud"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
