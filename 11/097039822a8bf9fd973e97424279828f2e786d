@@ -1,0 +1,26 @@
+anysearch/scripts/anysearch.py
+  s_656b0f0aea777c::t_2d8958f9efe6b3 95-110,112,114-116,119-128,178,181-184
+  s_656b0f0aea777c::t_285132b4a62b71 4,42-59,61-65,68,70
+  s_656b0f0aea777c::t_72da3f9671f074 778
+anysearch/SKILL.md
+  s_656b0f0aea777c::t_99fba499ff2c8a 107-109,111-114,116-121
+README.md
+  s_656b0f0aea777c::t_f46bf463c7f97f 45-46,49-51,54-55
+  s_656b0f0aea777c::t_4205785f4fe96f 56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "11097039822a8bf9fd973e97424279828f2e786d",
+  "prompts": {},
+  "sessions": {
+    "s_656b0f0aea777c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3a9d-af2f-7c33-9769-b8d3fb46f467",
+        "model": "gpt-5.5"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
