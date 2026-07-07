@@ -1,9 +1,10 @@
-# Key pool state — contains actual API keys, never commit
+# Local runtime state / secrets
 keys-state.json
-
-# Legacy env files (if migrated back)
 .env
 .env.*
+anysearch/keys-state.json
+anysearch/.env
+anysearch/.env.*
 
 # Python
 __pycache__/

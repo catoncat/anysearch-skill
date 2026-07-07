@@ -106,7 +106,7 @@ options:
   --domain, -d          Vertical domain (e.g. finance, code). Omit for general.
   --sub_domain, -s      Sub-domain (from get_sub_domains output).
   --sdp, -p             Sub-domain params: key=val,key=val  OR  JSON string.
-  --max_results, -m N   Max results to request from API. Default 5, max 10.
+  --max_results, -m N   Max results to request and render. Default 5, max 10.
   --format              compact | snippet | full. Default: compact.
                         compact = title + URL + rank only (~90 B).
                         snippet = title + URL + rank + first N chars (~550 B).
@@ -135,7 +135,7 @@ options:
   --domain, -d          Applied to queries that don't set their own domain.
   --sub_domain, -s      Applied to queries that don't set their own sub_domain.
   --sdp, -p             Applied to queries that don't set their own sdp.
-  --max_results, -m N   Applied to each query. Default 5, max 10.
+  --max_results, -m N   Applied to each query and used as a client-side cap. Default 5, max 10.
   --format              compact (default) | snippet | full.
   --max-chars N         Char budget for snippet. Default 500.
   --no-dedup            Disable cross-query URL dedup (default: dedup on).
@@ -480,7 +480,7 @@ One call, one result, full content. No second `extract` needed.
 |---|---|
 | `--format {compact,snippet,full}` | on `search`, `batch_search`, `extract` |
 | `--max-chars N` | snippet char budget, default 500 |
-| `--max-results N` | search and batch_search, default 5, max 10 |
+| `--max-results N` | search and batch_search, request + client-side render cap, default 5, max 10 |
 | Default `compact` for search, `full` for extract | §4.4 rationale |
 | Lead-noise skipping in snippet | §5.3, conservative heuristic |
 | URL canonicalization + dedup | §5.4, default on, `--no-dedup` to disable |

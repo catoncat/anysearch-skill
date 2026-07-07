@@ -609,10 +609,12 @@ def _with_header(label, body, count, deduped, elapsed, fmt):
     return header + ("\n\n" + body if body else "")
 
 
-def _render_search_like(data, label, fmt="compact", max_chars=500, dedup=True, elapsed=0.0):
+def _render_search_like(data, label, fmt="compact", max_chars=500, dedup=True, elapsed=0.0, limit=None):
     text = _format_result(data)
     results = _split_result_blobs(text)
     results, deduped = _dedup_results(results, enabled=dedup)
+    if limit is not None:
+        results = results[:max(0, limit)]
     results = [{**rec, "rank": i} for i, rec in enumerate(results, 1)]
     body = _render_body(results, fmt=fmt, max_chars=max_chars)
     if fmt == "compact" and body:
@@ -754,7 +756,7 @@ def main():
     s.add_argument("--domain", "-d")
     s.add_argument("--sub_domain", "-s")
     s.add_argument("--sdp", "-p", dest="sdp")
-    s.add_argument("--max_results", "--max-results", "-m", type=int)
+    s.add_argument("--max_results", "--max-results", "-m", type=int, default=5)
     s.add_argument("--format", choices=["compact", "snippet", "full"], default="compact",
                    help="compact=title+URL (default), snippet=preview, full=complete content")
     s.add_argument("--max-chars", dest="max_chars", type=int, default=500,
@@ -776,7 +778,7 @@ def main():
     b.add_argument("--domain", "-d")
     b.add_argument("--sub_domain", "-s")
     b.add_argument("--sdp", "-p", dest="sdp")
-    b.add_argument("--max_results", "--max-results", "-m", type=int)
+    b.add_argument("--max_results", "--max-results", "-m", type=int, default=5)
     b.add_argument("--format", choices=["compact", "snippet", "full"], default="compact",
                    help="compact=title+URL (default), snippet=preview, full=complete content")
     b.add_argument("--max-chars", dest="max_chars", type=int, default=500,
@@ -887,12 +889,12 @@ def main():
         if a.sdp:
             parsed = _sdp(a.sdp)
             if parsed: args["sub_domain_params"] = parsed
-        if a.max_results is not None:
-            args["max_results"] = min(a.max_results, 10)
+        limit = min(a.max_results, 10)
+        args["max_results"] = limit
         label = f'"{a.query}"'
         _dispatch("search", args, lambda data, elapsed: _render_search_like(
             data, label, fmt=a.format, max_chars=a.max_chars,
-            dedup=not a.no_dedup, elapsed=elapsed))
+            dedup=not a.no_dedup, elapsed=elapsed, limit=limit))
 
     elif a.cmd == "get_sub_domains":
         if a.domains:
@@ -919,13 +921,13 @@ def main():
             if a.domain and not q.get("domain"): q["domain"] = a.domain
             if a.sub_domain and not q.get("sub_domain"): q["sub_domain"] = a.sub_domain
             if a.sdp and not q.get("sub_domain_params"): q["sub_domain_params"] = _sdp(a.sdp)
-        if a.max_results is not None:
-            for q in queries:
-                q["max_results"] = min(a.max_results, 10)
+        limit = min(a.max_results, 10)
+        for q in queries:
+            q["max_results"] = limit
         label = f"batch({len(queries)} queries)"
         _dispatch("batch_search", {"queries": queries}, lambda data, elapsed: _render_search_like(
             data, label, fmt=a.format, max_chars=a.max_chars,
-            dedup=not a.no_dedup, elapsed=elapsed))
+            dedup=not a.no_dedup, elapsed=elapsed, limit=limit * len(queries)))
 
     elif a.cmd == "extract":
         if not a.url: sys.exit("Error: url required")
