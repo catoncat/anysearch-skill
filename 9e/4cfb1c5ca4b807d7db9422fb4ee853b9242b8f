@@ -1,0 +1,24 @@
+anysearch/keys-state.example.json
+  s_656b0f0aea777c::t_980317fda88d02 4
+anysearch/SKILL.md
+  s_656b0f0aea777c::t_0178806e4c23d2 4-11,16,18-23,27-41,43-55,59-63,68-69,71-76,78,81-86,88-91,100,105,107-108,110,112-114,117-119,121-123,125,127-128,130,134-137
+  s_656b0f0aea777c::t_43140718e52f22 138
+anysearch/scripts/anysearch.py
+  s_656b0f0aea777c::t_9e5322e2e99e48 8,53,84,383-392
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9e4cfb1c5ca4b807d7db9422fb4ee853b9242b8f",
+  "prompts": {},
+  "sessions": {
+    "s_656b0f0aea777c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3a9d-af2f-7c33-9769-b8d3fb46f467",
+        "model": "gpt-5.5"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
