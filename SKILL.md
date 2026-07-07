@@ -7,138 +7,153 @@ description: >-
   documentation, or any knowledge not already in context. Covers general web
   search, vertical domain search (finance, academic, code, health, legal,
   security, travel, energy, environment, agriculture, business, ip, gaming,
-  film, social_media), parallel batch search (2–5 queries at once), and
-  full-page URL content extraction as Markdown.
+  film, social_media), parallel batch search, and URL extraction. Agent-friendly
+  payload controls default to compact search results to avoid context blowups.
 ---
 
 # anysearch
 
-**Probe** the web via AnySearch — one API, four tools: `search`,
-`get_sub_domains`, `batch_search`, `extract`.
+**Probe → Extract** with AnySearch.
 
-## Route first
+- `search` / `batch_search` are for **discovery**: find candidate URLs.
+- `extract` is for **deep-read**: read one chosen URL.
+- Default search output is compact to protect context; explicitly ask for more.
 
-Every probe follows one of three paths. Pick by scanning the query:
+`<cmd>` = `python3 <skill-dir>/scripts/anysearch.py`.
 
-| Signal | Path | First call |
-|---|---|---|
-| General knowledge, news, opinions, concepts — no structured identifier | **General** | `search` directly |
-| Structured identifier (ticker, DOI, CVE, IATA) or specialized vertical (stock price, flight status, paper, drug info, weather, AQI) | **Vertical** | `get_sub_domains` → `search` |
-| Ambiguous — could be both, or crosses multiple domains | **Hybrid** | `batch_search` with 1 general + N vertical |
+## Format decision
 
-**Done when** the path is chosen before any API call is made.
+| Agent is... | Use | Results | Then |
+|---|---|---:|---|
+| **Exploring**: “what exists on X?” | `search --format compact` | 5–10 | scan titles → `extract <URL>` winners |
+| **Evaluating**: “is this relevant?” | `search --format snippet` | 3–5 | if confirmed → `extract <URL>` |
+| **Deep-reading**: “give me full search results” | `search --format full` | 1–3 | done |
+| **Comparing**: “N aspects of X” | `batch_search --format compact` | 5/query | extract distinct winners |
+| **Quick answer**: “top hit is enough” | `search --format full --max-results 1` | 1 | done |
 
-### Vertical gate
+Notes:
 
-Before passing `--domain` to `search`, you MUST call `get_sub_domains` first.
-The `sub_domain` and `sub_domain_params` come from its output — never guess.
-
-**Done when** `sub_domain` is confirmed from `get_sub_domains` output.
+1. `compact` = rank + title + URL. `snippet` = compact + first N chars. `full` = complete API content.
+2. `snippet` is positional, not semantic. It skips obvious nav/ad lead noise, then takes the first `--max-chars` chars. For blogs/news with heavy chrome, confirm with `extract`.
+3. `--format` trims client-side. AnySearch still sends full data to the script; this saves **agent context**, not network latency.
+4. Search and batch dedup by canonical URL by default. Use `--no-dedup` only when duplicates matter.
+5. `#N` rank is the relevance signal; AnySearch does not expose a numeric score.
+6. `extract` defaults to `--format full` because the URL has already been selected.
 
 ## Commands
 
-`<cmd>` = `python3 <skill-dir>/scripts/anysearch.py` (replace `<skill-dir>` with this skill's install path)
+```bash
+# General discovery (safe default: compact)
+<cmd> search "Cloudflare Workers 2026" --format compact --max-results 8
+
+# Evaluate candidates with short previews
+<cmd> search "Python asyncio gather exception handling" --format snippet --max-results 3 --max-chars 500
+
+# Quick one-shot answer
+<cmd> search "current US inflation rate 2025" --format full --max-results 1
+
+# Deep-read a chosen URL
+<cmd> extract "https://example.com/article"                 # full by default
+<cmd> extract "https://example.com/article" --format snippet --max-chars 800
+
+# Batch comparison (max 5 queries, dedup on by default)
+<cmd> batch_search --query "PostgreSQL performance" --query "MySQL performance" --format compact --max-results 5
+```
+
+Options:
+
+- `--format compact|snippet|full` — search/batch default `compact`; extract default `full`.
+- `--max-results N` / `--max_results N` / `-m N` — cap results, max 10.
+- `--max-chars N` — snippet char budget, default 500.
+- `--no-dedup` — disable URL dedup for search/batch.
+
+## Route first
+
+| Signal | Path | First call |
+|---|---|---|
+| General knowledge, news, opinions, concepts — no structured identifier | **General** | `search --format compact` |
+| Structured identifier (ticker, DOI, CVE, IATA) or specialized vertical | **Vertical** | `get_sub_domains` → `search` |
+| Ambiguous or crosses multiple aspects | **Hybrid** | `batch_search --format compact` |
+
+Before passing `--domain` to `search`, call `get_sub_domains` first. The
+`sub_domain` and required `sub_domain_params` come from live output — never guess.
 
 ```bash
-# General
-<cmd> search "latest news on quantum computing" --max_results 5
-
-# Vertical — get_sub_domains first, then search with sub_domain
+# Discover vertical schema first
 <cmd> get_sub_domains --domains finance,code
-<cmd> search "AAPL" --domain finance --sub_domain finance.quote --sdp type=stock,symbol=AAPL,cn_code=
 
-# Hybrid — general + vertical in one batch
-<cmd> batch_search --query "what is quantitative easing" --query "Fed funds rate 2025" --domain finance --sub_domain finance.macro --sdp type=fed_funds
-
-# Extract — full page content as Markdown (50K char limit, HTML only)
-<cmd> extract "https://example.com/article"
-
-# Register a new account + create API key (no email needed)
-<cmd> register                          # auto-gen username/password, add key to pool
-<cmd> register -n 3                     # create 3 accounts+keys in one call
-<cmd> register -k production-key          # custom key name
-<cmd> register --print_only              # print only, don't add to pool
-<cmd> register -u myuser -p mypass       # custom credentials
-
-# Auto-register when all keys exhausted (per-call or via env var)
-<cmd> --auto_register search "query"
-# or persist via env: ANYSEARCH_AUTO_REGISTER=1
+# Then call vertical search with confirmed params
+<cmd> search "AAPL" --domain finance --sub_domain finance.quote \
+  --sdp type=stock,symbol=AAPL,cn_code= --format compact --max-results 3
 ```
 
-`--sdp` accepts `key=value` pairs (preferred) or JSON. Params marked `(required)`
-in `get_sub_domains` output must all be passed; if a value is N/A, pass empty
-string (`key=`). `batch_search` accepts up to 5 `--query` flags or a JSON array.
+`--sdp` accepts `key=value` pairs or JSON. Params marked required must all be
+passed; if a value is N/A, pass empty string (`key=`).
 
-**Done when** API returns results without error.
+## End-to-end patterns
 
-## API key
+### Explore then extract
 
-Optional — anonymous access works with lower rate limits.
-
-Key pool state is stored in `keys-state.json` (next to `SKILL.md`).
-This is the single source of truth — no `.env` file needed.
-
-**Manage keys:**
 ```bash
-<cmd> keys list                       # show pool: status, call_count, last_used per key
-<cmd> keys status                     # JSON summary
-<cmd> keys add --key_value as_sk_xxx  # add an existing key manually
-<cmd> keys remove --key_value as_sk_xxx  # remove a key
-<cmd> keys prune                     # remove all dead keys
-<cmd> keys config --rotation round-robin  # set rotation mode
-<cmd> keys config --auto_register true     # enable auto-register
+<cmd> search "WebGPU browser support 2025" --format compact --max-results 8
+# choose authoritative URLs from #1..#8
+<cmd> extract "https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API"
 ```
 
-**Create keys:**
+### Evaluate before committing context
+
 ```bash
-<cmd> register                       # register account + create key, add to pool
-<cmd> register -n 3                  # create 3 at once
-<cmd> register -k production-key     # custom key name
-<cmd> register --print_only           # print only, don't add to pool
+<cmd> search "Rust async runtime comparison" --format snippet --max-results 4 --max-chars 400
+# if one result is promising, deep-read it
+<cmd> extract "https://tokio.rs/tokio/tutorial"
 ```
 
-**Auto-register** — when all keys are exhausted, automatically register a new
-account + create a key instead of falling back to anonymous:
+### Compare several angles
+
 ```bash
-<cmd> --auto_register search "query"
-<cmd> keys config --auto_register true   # persist in keys-state.json
+<cmd> batch_search \
+  --query "Cloudflare Workers deployment" \
+  --query "Cloudflare Workers observability" \
+  --query "Cloudflare Workers pricing" \
+  --format compact --max-results 5
+# deduped candidate list → extract 2–4 winners
 ```
 
-When a key returns `invalid_api_key` or quota exhausted, the script marks it
-dead in `keys-state.json` and rotates to the next key. If all keys are dead,
-it falls back to anonymous (or auto-registers a fresh key if enabled).
-If the API auto-registers a new key, it's added to the pool automatically.
+## Key pool
 
-## Domains
+Anonymous access works with lower limits. Key pool state lives in
+`keys-state.json` next to `SKILL.md`.
 
-`general` `finance` `academic` `code` `health` `legal` `security` `business` `ip`
-`energy` `environment` `agriculture` `travel` `film` `gaming` `social_media` `resource`
-
-For full sub_domain schemas and parameter details, see
-[references/domains.md](references/domains.md). Call `get_sub_domains` live for
-the latest schema — the reference may lag behind API updates.
-
-## Key rotation flow
-
-```
-keys-state.json (single source of truth)
-  → load active keys → build pool
-  → try key[0] → isError? → mark dead in state → try key[1] → … → key[N]
-  → all dead?
-    → auto_register enabled? → register new account + create key → add to pool → retry
-    → else → anonymous fallback
-  → API returns auto_registered key? → add to pool
+```bash
+<cmd> keys list                         # status, call_count, last_used per key
+<cmd> keys status                       # JSON summary
+<cmd> keys add --key_value as_sk_xxx    # add existing key
+<cmd> keys remove --key_value as_sk_xxx # remove key
+<cmd> keys prune                        # remove dead keys
+<cmd> keys config --rotation round-robin
+<cmd> keys config --auto_register true
 ```
 
-## Self-serve register flow
+Rotation modes:
 
-```
-register subcommand
-  → POST /api/ssuser/auth/register (username, password, agreement=true)
-  → POST /api/api/user/keys (Bearer access_token)
-  → add key to keys-state.json pool
-  → output JSON: [{username, password, api_key, key_id, key_name}]
+- `fallback`: key1 until exhausted → key2 → … → anonymous.
+- `round-robin`: cycle keys on each call; dead keys are skipped.
+
+When a key returns `invalid_api_key`, quota, or rate-limit errors, the script
+marks it dead and rotates. If all keys are dead, it falls back to anonymous or
+auto-registers if enabled.
+
+```bash
+<cmd> register                 # register account + create key + add to pool
+<cmd> register -n 3            # create 3 accounts+keys
+<cmd> register --print_only    # print credentials/key without adding
+<cmd> --auto_register search "query" --format compact
 ```
 
-Rate limits: the register endpoint has an upstream rate limit (~1 req/min).
-If you get `42901`, wait 60-120s and retry.
+## References
+
+- Full vertical domain schemas: [references/domains.md](references/domains.md)
+- Payload-control design spec: [references/design-v2.md](references/design-v2.md)
+
+Call `get_sub_domains` live when precision matters — static references can lag
+behind API changes.

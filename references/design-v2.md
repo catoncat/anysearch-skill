@@ -123,7 +123,8 @@ options:
 ```
 usage: anysearch batch_search [-h] [--query Q] [--domain DOMAIN]
                               [--sub_domain SUB_DOMAIN] [--sdp SDP]
-                              [--format FORMAT] [--max-chars N] [--no-dedup]
+                              [--max_results N] [--format FORMAT]
+                              [--max-chars N] [--no-dedup]
                               [queries]
 
 positional arguments:
@@ -134,6 +135,7 @@ options:
   --domain, -d          Applied to queries that don't set their own domain.
   --sub_domain, -s      Applied to queries that don't set their own sub_domain.
   --sdp, -p             Applied to queries that don't set their own sdp.
+  --max_results, -m N   Applied to each query. Default 5, max 10.
   --format              compact (default) | snippet | full.
   --max-chars N         Char budget for snippet. Default 500.
   --no-dedup            Disable cross-query URL dedup (default: dedup on).
@@ -428,9 +430,9 @@ Goal: compare quantitative easing definition vs. Fed funds rate current value.
   --max-results 5
 ```
 
-Note: `batch_search` does not expose `--max-results` per query in v1; each
-query requests the API default (5). `--format compact` + dedup keeps the
-output small.
+Note: `batch_search --max-results N` applies the same cap to each query in v1.
+Per-query caps are deferred to v2. `--format compact` + dedup keeps the output
+small.
 
 Output:
 ```
@@ -478,7 +480,7 @@ One call, one result, full content. No second `extract` needed.
 |---|---|
 | `--format {compact,snippet,full}` | on `search`, `batch_search`, `extract` |
 | `--max-chars N` | snippet char budget, default 500 |
-| `--max-results N` | search only, default 5, max 10 |
+| `--max-results N` | search and batch_search, default 5, max 10 |
 | Default `compact` for search, `full` for extract | §4.4 rationale |
 | Lead-noise skipping in snippet | §5.3, conservative heuristic |
 | URL canonicalization + dedup | §5.4, default on, `--no-dedup` to disable |
@@ -514,7 +516,8 @@ One call, one result, full content. No second `extract` needed.
    appends the format hint (if applicable).
 5. **`_render_extract(blob, fmt, max_chars)`** — new function for extract.
 6. **argparse** — add `--format`, `--max-chars`, `--no-dedup` to `search`,
-   `batch_search`, and `extract` subparsers per §4.
+   `batch_search`, and `extract` subparsers per §4. Add `--max-results` alias
+   to search and batch_search.
 7. **`_dispatch`** — after getting the API response, route to the new
    renderers instead of printing raw `_format_result` output.
 

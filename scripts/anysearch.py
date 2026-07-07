@@ -468,30 +468,32 @@ def _parse_blob(text):
     """Parse one Markdown-ish result blob into title, URL, body, raw."""
     raw = text.strip()
     lines = raw.splitlines()
-    title, url, body_start = "", "", 0
+    title, url, body_start, url_idx = "", "", 0, None
 
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if not stripped:
-            continue
-        if stripped.startswith("# "):
-            title = stripped[2:].strip()
-        else:
-            title = re.sub(r"^[-*]\s*", "", stripped)
-        body_start = i + 1
-        break
-
-    for i in range(body_start, len(lines)):
-        stripped = lines[i].strip()
-        m = re.match(r"^-?\s*\*\*URL\*\*:\s*(https?://\S+)", stripped)
+        m = re.match(r"^-?\s*\*\*(?:URL|Source)\*\*:\s*(https?://\S+)", stripped)
         if m:
             url = m.group(1).strip()
-            body_start = i + 1
+            body_start, url_idx = i + 1, i
             break
         if re.match(r"^https?://\S+", stripped):
             url = stripped.split()[0]
-            body_start = i + 1
+            body_start, url_idx = i + 1, i
             break
+
+    title_lines = lines[:url_idx] if url_idx is not None else lines
+    for i, line in enumerate(title_lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            title = stripped.lstrip("#").strip()
+        else:
+            title = re.sub(r"^[-*]\s*", "", stripped)
+        if url_idx is None:
+            body_start = i + 1
+        break
 
     body = "\n".join(lines[body_start:]).strip()
     body = re.sub(r"^[-*]\s*", "", body, count=1)
@@ -562,7 +564,7 @@ def _skip_lead_noise(body, budget=200):
     while idx < len(lines) and consumed < budget:
         stripped = lines[idx].strip()
         lower = stripped.lower()
-        is_noise = (not stripped) or (
+        is_noise = (not stripped) or stripped in ("---", "--", "___") or (
             len(stripped) < 40 and any(p in lower for p in _NOISE_PATTERNS)
         )
         if not is_noise:
@@ -611,6 +613,7 @@ def _render_search_like(data, label, fmt="compact", max_chars=500, dedup=True, e
     text = _format_result(data)
     results = _split_result_blobs(text)
     results, deduped = _dedup_results(results, enabled=dedup)
+    results = [{**rec, "rank": i} for i, rec in enumerate(results, 1)]
     body = _render_body(results, fmt=fmt, max_chars=max_chars)
     if fmt == "compact" and body:
         body += "\n\n(use --format snippet for content previews, --format full for complete content)"
