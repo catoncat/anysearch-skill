@@ -1,9 +1,7 @@
 # AnySearch Skill
 
 <p align="center">
-  <a href="https://github.com/catoncat/anysearch-skill/blob/main/assets/anysearch-mascot-banner.png?raw=true">
-    <img src="https://raw.githubusercontent.com/catoncat/anysearch-skill/main/assets/anysearch-mascot-banner.png" alt="AnySearch skill mascot — probe the web, extract what matters" width="100%" />
-  </a>
+  <img src="assets/anysearch-banner.png" alt="AnySearch skill mascot — probe the web, extract what matters" width="100%" />
 </p>
 
 Agent-friendly **AnySearch** for coding agents: a Pi/Codex-style skill plus a bundled stdlib-only CLI that keeps web discovery cheap, then deep-reads only the sources worth putting in context.
@@ -127,7 +125,7 @@ Never commit real API keys. [`anysearch/keys-state.example.json`](anysearch/keys
 | [`anysearch/SKILL.md`](anysearch/SKILL.md) | Agent-facing process |
 | [`anysearch/scripts/anysearch.py`](anysearch/scripts/anysearch.py) | Bundled CLI |
 | [`anysearch/references/`](anysearch/references/) | Payload, keys, domains docs |
-| [`assets/anysearch-mascot-banner.png`](assets/anysearch-mascot-banner.png) | README banner art |
+| [`assets/anysearch-banner.png`](assets/anysearch-banner.png) | README banner art |
 
 ## License
 
