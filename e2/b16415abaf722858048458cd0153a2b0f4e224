@@ -1,0 +1,38 @@
+anysearch/references/payload-control.md
+  s_4cb81c9c005bbf::t_bd4faa67b62c59 135,146-149,163
+  s_4cb81c9c005bbf::t_5350e649580b8b 127-134,137-145
+  s_4cb81c9c005bbf::t_ebefec8e3fa4bf 136,150-162
+anysearch/SKILL.md
+  s_4cb81c9c005bbf::t_5ff63521f1e53e 81-84
+anysearch/scripts/anysearch.py
+  s_4cb81c9c005bbf::t_0500d6bd586af2 972-974
+  s_4cb81c9c005bbf::t_ae3c870e810f55 1123-1124,1126
+  s_4cb81c9c005bbf::t_4c985dee044dd6 652
+  s_4cb81c9c005bbf::t_95f5aeb0fb5682 680-685,688-696,698-719,734,736,740
+  s_4cb81c9c005bbf::t_2ed995478e9efb 633-638,643,654-655,661,664-679,686-687,697,720-731,733,735,737-738,741-745,1114-1122,1127-1128
+  s_4cb81c9c005bbf::t_b07ca48966d15f 639-642
+  s_4cb81c9c005bbf::t_db26f6586bfdcb 644-651,653,656-660,662-663
+  s_4cb81c9c005bbf::t_b37a57ecddbdd5 1125
+  s_4cb81c9c005bbf::t_cbaead8084a394 732,739
+  s_4cb81c9c005bbf::t_6003ea0ca68004 971
+README.md
+  s_4cb81c9c005bbf::t_69457c0aff3c44 48-49,52,57
+  s_4cb81c9c005bbf::t_d6d43b43aa492a 47,53-54,58-60
+  s_4cb81c9c005bbf::t_e8e800dbc2652e 45-46,50-51,55-56,61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e2b16415abaf722858048458cd0153a2b0f4e224",
+  "prompts": {},
+  "sessions": {
+    "s_4cb81c9c005bbf": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3bff-c9c8-7e84-9b02-ad5eb7f0ac8b",
+        "model": "glm-5.2:cloud"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
