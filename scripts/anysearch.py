@@ -27,7 +27,7 @@ Rotation modes:
   round-robin each call uses the next key in the pool, cycling back to start.
               Dead keys are skipped; if all dead, falls back to anonymous.
 """
-import json, os, sys, time, random, string, urllib.request, urllib.error
+import json, os, sys, time, random, string, re, urllib.request, urllib.error, urllib.parse
 
 ENDPOINT = "https://api.anysearch.com/mcp"
 WEB_API = "https://anysearch.com"
@@ -350,7 +350,7 @@ def _rotate_fallback(tool, args, pool, auto_register=False):
         if new_key:
             print(f"[auto-registered] New key received: {new_key[:12]}…", file=sys.stderr)
         print(f"[hit] key {i+1}/{len(pool)} ({key[:12]}…) calls+1", file=sys.stderr)
-        return _format_result(data), new_key
+        return data, new_key
 
     if auto_register:
         fresh_key = _auto_register()
@@ -361,7 +361,7 @@ def _rotate_fallback(tool, args, pool, auto_register=False):
             elif not _is_dead_key(data):
                 _mark_key_used(fresh_key)
                 print(f"[hit] fresh key ({fresh_key[:12]}…)", file=sys.stderr)
-                return _format_result(data), None
+                return data, None
 
     if pool:
         print("[fallback] All keys exhausted, trying anonymous…", file=sys.stderr)
@@ -374,7 +374,7 @@ def _rotate_fallback(tool, args, pool, auto_register=False):
             sys.exit(item.get("text", "All keys exhausted and anonymous failed."))
         sys.exit("All keys exhausted.")
     print("[hit] anonymous", file=sys.stderr)
-    return _format_result(data), None
+    return data, None
 
 
 def _rotate_round_robin(tool, args, pool, auto_register=False):
@@ -384,7 +384,7 @@ def _rotate_round_robin(tool, args, pool, auto_register=False):
         if err:
             sys.exit(err)
         print("[hit] anonymous (no keys)", file=sys.stderr)
-        return _format_result(data), None
+        return data, None
 
     state = _load_key_state()
     n = len(pool)
@@ -411,7 +411,7 @@ def _rotate_round_robin(tool, args, pool, auto_register=False):
         if new_key:
             print(f"[auto-registered] New key received: {new_key[:12]}…", file=sys.stderr)
         print(f"[hit] key {idx+1}/{n} ({key[:12]}…) calls+1 → cursor={next_idx}", file=sys.stderr)
-        return _format_result(data), new_key
+        return data, new_key
 
     if auto_register:
         fresh_key = _auto_register()
@@ -422,7 +422,7 @@ def _rotate_round_robin(tool, args, pool, auto_register=False):
             elif not _is_dead_key(data):
                 _mark_key_used(fresh_key)
                 print(f"[hit] fresh key ({fresh_key[:12]}…)", file=sys.stderr)
-                return _format_result(data), None
+                return data, None
 
     if pool:
         print("[rr] All keys exhausted, trying anonymous…", file=sys.stderr)
@@ -435,7 +435,7 @@ def _rotate_round_robin(tool, args, pool, auto_register=False):
             sys.exit(item.get("text", "All keys exhausted and anonymous failed."))
         sys.exit("All keys exhausted.")
     print("[hit] anonymous", file=sys.stderr)
-    return _format_result(data), None
+    return data, None
 
 
 def _call_with_rotation(tool, args, pool, mode="fallback", auto_register=False):
@@ -453,6 +453,184 @@ def _format_result(data):
         if item.get("type") == "text":
             parts.append(item["text"])
     return "\n".join(parts) if parts else json.dumps(result, indent=2, ensure_ascii=False)
+
+
+# ── payload rendering ─────────────────────────────────────────────────────────
+
+_NOISE_PATTERNS = (
+    "menu", "skip to", "sign in", "log in", "subscribe", "cookie",
+    "advertis", "javascript", "©", "home", "about", "contact",
+    "search", "nav", "button",
+)
+
+
+def _parse_blob(text):
+    """Parse one Markdown-ish result blob into title, URL, body, raw."""
+    raw = text.strip()
+    lines = raw.splitlines()
+    title, url, body_start = "", "", 0
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("# "):
+            title = stripped[2:].strip()
+        else:
+            title = re.sub(r"^[-*]\s*", "", stripped)
+        body_start = i + 1
+        break
+
+    for i in range(body_start, len(lines)):
+        stripped = lines[i].strip()
+        m = re.match(r"^-?\s*\*\*URL\*\*:\s*(https?://\S+)", stripped)
+        if m:
+            url = m.group(1).strip()
+            body_start = i + 1
+            break
+        if re.match(r"^https?://\S+", stripped):
+            url = stripped.split()[0]
+            body_start = i + 1
+            break
+
+    body = "\n".join(lines[body_start:]).strip()
+    body = re.sub(r"^[-*]\s*", "", body, count=1)
+    return {"rank": None, "title": title, "url": url, "body": body, "raw": raw}
+
+
+def _split_result_blobs(text):
+    """Split AnySearch's formatted search output into individual result records."""
+    matches = list(re.finditer(r"(?m)^###\s+(\d+)\.\s+(.+?)\s*$", text))
+    if not matches:
+        blob = _parse_blob(text)
+        return [blob] if blob["title"] or blob["url"] or blob["body"] else []
+
+    results = []
+    for i, m in enumerate(matches):
+        start = m.start()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        raw = text[start:end].strip()
+        section_after_title = text[m.end():end].strip()
+        rec = _parse_blob(section_after_title)
+        rec["rank"] = int(m.group(1))
+        rec["title"] = m.group(2).strip()
+        rec["raw"] = raw
+        results.append(rec)
+    return results
+
+
+def _canonical_url(url):
+    """Canonical key for dedup only; displayed URL stays unchanged."""
+    if not url:
+        return ""
+    try:
+        parsed = urllib.parse.urlsplit(url.strip())
+    except Exception:
+        return url.strip().lower().rstrip("/")
+    scheme = "https"
+    host = (parsed.netloc or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    path = parsed.path or ""
+    if path == "/":
+        path = ""
+    path = path.rstrip("/")
+    query_pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    query = urllib.parse.urlencode(sorted(query_pairs))
+    return urllib.parse.urlunsplit((scheme, host, path, query, ""))
+
+
+def _dedup_results(results, enabled=True):
+    if not enabled:
+        return results, 0
+    seen, out, removed = set(), [], 0
+    for rec in results:
+        key = _canonical_url(rec.get("url", "")) or rec.get("raw", "")[:120]
+        if key in seen:
+            removed += 1
+            continue
+        seen.add(key)
+        out.append(rec)
+    return out, removed
+
+
+def _skip_lead_noise(body, budget=200):
+    if not body:
+        return body
+    lines = body.lstrip().splitlines()
+    consumed, idx = 0, 0
+    while idx < len(lines) and consumed < budget:
+        stripped = lines[idx].strip()
+        lower = stripped.lower()
+        is_noise = (not stripped) or (
+            len(stripped) < 40 and any(p in lower for p in _NOISE_PATTERNS)
+        )
+        if not is_noise:
+            break
+        consumed += len(lines[idx]) + 1
+        idx += 1
+    trimmed = "\n".join(lines[idx:]).strip()
+    return trimmed or body.strip()
+
+
+def _clip(text, max_chars):
+    text = text.strip()
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip() + "…"
+
+
+def _render_body(results, fmt="compact", max_chars=500, source_url=None):
+    chunks = []
+    for fallback_rank, rec in enumerate(results, 1):
+        rank = rec.get("rank") or fallback_rank
+        title = rec.get("title") or "(untitled)"
+        url = rec.get("url") or source_url or ""
+        if fmt == "full":
+            chunks.append(rec.get("raw") or rec.get("body") or title)
+            continue
+        lines = [f"#{rank}  {title}"]
+        if url:
+            lines.append(f"    {url}")
+        if fmt == "snippet":
+            snippet = _clip(_skip_lead_noise(rec.get("body", "")), max_chars)
+            if snippet:
+                lines.append("    " + snippet.replace("\n", "\n    "))
+        chunks.append("\n".join(lines))
+    return "\n\n".join(chunks).strip()
+
+
+def _with_header(label, body, count, deduped, elapsed, fmt):
+    size_kb = len(body.encode("utf-8")) / 1024
+    dedup = f" ({deduped} deduped)" if deduped else ""
+    header = f"## {label} — {count} result{'s' if count != 1 else ''}{dedup}, {elapsed:.1f}s, {fmt}, {size_kb:.2f} KB"
+    return header + ("\n\n" + body if body else "")
+
+
+def _render_search_like(data, label, fmt="compact", max_chars=500, dedup=True, elapsed=0.0):
+    text = _format_result(data)
+    results = _split_result_blobs(text)
+    results, deduped = _dedup_results(results, enabled=dedup)
+    body = _render_body(results, fmt=fmt, max_chars=max_chars)
+    if fmt == "compact" and body:
+        body += "\n\n(use --format snippet for content previews, --format full for complete content)"
+    elif fmt == "snippet" and body:
+        top_url = results[0].get("url", "<URL>") if results else "<URL>"
+        body += f"\n\n(use --format full for complete content, or extract {top_url} to deep-read one page)"
+    return _with_header(label, body, len(results), deduped, elapsed, fmt)
+
+
+def _render_extract(data, url, fmt="full", max_chars=500, elapsed=0.0):
+    text = _format_result(data)
+    rec = _parse_blob(text)
+    if not rec.get("url"):
+        rec["url"] = url
+    body = _render_body([rec], fmt=fmt, max_chars=max_chars, source_url=url)
+    if fmt == "compact" and body:
+        body += "\n\n(use --format snippet for a content preview, --format full for complete content)"
+    elif fmt == "snippet" and body:
+        body += f"\n\n(use --format full to read the complete page: {url})"
+    return _with_header(f'extract "{url}"', body, 1 if body else 0, 0, elapsed, fmt)
 
 
 # ── key persistence ───────────────────────────────────────────────────────────
@@ -573,7 +751,13 @@ def main():
     s.add_argument("--domain", "-d")
     s.add_argument("--sub_domain", "-s")
     s.add_argument("--sdp", "-p", dest="sdp")
-    s.add_argument("--max_results", "-m", type=int)
+    s.add_argument("--max_results", "--max-results", "-m", type=int)
+    s.add_argument("--format", choices=["compact", "snippet", "full"], default="compact",
+                   help="compact=title+URL (default), snippet=preview, full=complete content")
+    s.add_argument("--max-chars", dest="max_chars", type=int, default=500,
+                   help="Character budget for snippet mode (default: 500)")
+    s.add_argument("--no-dedup", action="store_true",
+                   help="Disable URL deduplication")
     s.add_argument("--rotation", "-r", dest="rotation",
                    choices=["fallback", "round-robin"], default=None)
 
@@ -589,11 +773,22 @@ def main():
     b.add_argument("--domain", "-d")
     b.add_argument("--sub_domain", "-s")
     b.add_argument("--sdp", "-p", dest="sdp")
+    b.add_argument("--max_results", "--max-results", "-m", type=int)
+    b.add_argument("--format", choices=["compact", "snippet", "full"], default="compact",
+                   help="compact=title+URL (default), snippet=preview, full=complete content")
+    b.add_argument("--max-chars", dest="max_chars", type=int, default=500,
+                   help="Character budget for snippet mode (default: 500)")
+    b.add_argument("--no-dedup", action="store_true",
+                   help="Disable URL deduplication")
     b.add_argument("--rotation", "-r", dest="rotation",
                    choices=["fallback", "round-robin"], default=None)
 
     e = sub.add_parser("extract")
     e.add_argument("url", nargs="?")
+    e.add_argument("--format", choices=["compact", "snippet", "full"], default="full",
+                   help="compact=title+URL, snippet=preview, full=complete content (default)")
+    e.add_argument("--max-chars", dest="max_chars", type=int, default=500,
+                   help="Character budget for snippet mode (default: 500)")
     e.add_argument("--rotation", "-r", dest="rotation",
                    choices=["fallback", "round-robin"], default=None)
 
@@ -673,8 +868,11 @@ def main():
     else:
         print(f"[keys] anonymous (no active keys)  mode={rotation}  auto_register={auto_reg}", file=sys.stderr)
 
-    def _dispatch(tool, args):
-        output, new_key = _call_with_rotation(tool, args, pool, rotation, auto_register=auto_reg)
+    def _dispatch(tool, args, render=None):
+        start = time.perf_counter()
+        data, new_key = _call_with_rotation(tool, args, pool, rotation, auto_register=auto_reg)
+        elapsed = time.perf_counter() - start
+        output = render(data, elapsed) if render else _format_result(data)
         print(output)
         if new_key:
             _persist_new_key(new_key, source="auto_register")
@@ -688,7 +886,10 @@ def main():
             if parsed: args["sub_domain_params"] = parsed
         if a.max_results is not None:
             args["max_results"] = min(a.max_results, 10)
-        _dispatch("search", args)
+        label = f'"{a.query}"'
+        _dispatch("search", args, lambda data, elapsed: _render_search_like(
+            data, label, fmt=a.format, max_chars=a.max_chars,
+            dedup=not a.no_dedup, elapsed=elapsed))
 
     elif a.cmd == "get_sub_domains":
         if a.domains:
@@ -715,11 +916,18 @@ def main():
             if a.domain and not q.get("domain"): q["domain"] = a.domain
             if a.sub_domain and not q.get("sub_domain"): q["sub_domain"] = a.sub_domain
             if a.sdp and not q.get("sub_domain_params"): q["sub_domain_params"] = _sdp(a.sdp)
-        _dispatch("batch_search", {"queries": queries})
+        if a.max_results is not None:
+            for q in queries:
+                q["max_results"] = min(a.max_results, 10)
+        label = f"batch({len(queries)} queries)"
+        _dispatch("batch_search", {"queries": queries}, lambda data, elapsed: _render_search_like(
+            data, label, fmt=a.format, max_chars=a.max_chars,
+            dedup=not a.no_dedup, elapsed=elapsed))
 
     elif a.cmd == "extract":
         if not a.url: sys.exit("Error: url required")
-        _dispatch("extract", {"url": a.url})
+        _dispatch("extract", {"url": a.url}, lambda data, elapsed: _render_extract(
+            data, a.url, fmt=a.format, max_chars=a.max_chars, elapsed=elapsed))
 
 
 if __name__ == "__main__":

@@ -37,7 +37,7 @@ The `sub_domain` and `sub_domain_params` come from its output — never guess.
 
 ## Commands
 
-`<cmd>` = `python3 ~/.agents/skills/anysearch/scripts/anysearch.py`
+`<cmd>` = `python3 <skill-dir>/scripts/anysearch.py` (replace `<skill-dir>` with this skill's install path)
 
 ```bash
 # General
@@ -54,10 +54,10 @@ The `sub_domain` and `sub_domain_params` come from its output — never guess.
 <cmd> extract "https://example.com/article"
 
 # Register a new account + create API key (no email needed)
-<cmd> register                          # auto-gen username/password, save key to .env
+<cmd> register                          # auto-gen username/password, add key to pool
 <cmd> register -n 3                     # create 3 accounts+keys in one call
 <cmd> register -k production-key          # custom key name
-<cmd> register --print_only              # print only, don't modify .env
+<cmd> register --print_only              # print only, don't add to pool
 <cmd> register -u myuser -p mypass       # custom credentials
 
 # Auto-register when all keys exhausted (per-call or via env var)
