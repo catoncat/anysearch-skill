@@ -1,7 +1,7 @@
 # Key pool state — contains actual API keys, never commit
 keys-state.json
 
-# Legacy env files (if migrated back)
+# Install-local env files (may contain keys)
 .env
 .env.*
 

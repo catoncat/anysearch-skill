@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AnySearch probe — stdlib-only CLI with multi-key rotation + state tracking.
+"""AnySearch probe/extract CLI — stdlib-only with key-pool recovery.
 
 Key pool state lives in the OS user config directory (single source of truth):
   {
@@ -61,13 +61,13 @@ def _state_path():
     return os.path.join(_config_dir(), "keys-state.json")
 
 
-def _legacy_state_path():
-    """Old install-local state path; migrated to _state_path() on first run."""
+def _install_state_path():
+    """Install-local state path, imported into _state_path() when present."""
     return os.path.join(_skill_dir(), "keys-state.json")
 
 
-def _old_env_path():
-    """Legacy install-local .env path — only used for one-time migration."""
+def _install_env_path():
+    """Install-local .env path, imported into _state_path() when present."""
     return os.path.join(_skill_dir(), ".env")
 
 
@@ -111,7 +111,7 @@ def _load_json_state(path):
 def _load_key_state():
     """Load key pool state from the OS config dir.
 
-    First run migrates legacy install-local keys-state.json/.env and env vars.
+    First run imports install-local keys-state.json/.env and env vars.
     Keeping runtime state outside the skill directory lets npx/skills reinstall
     overwrite code without deleting keys.
     """
@@ -120,8 +120,8 @@ def _load_key_state():
     if state is not None:
         return state
 
-    legacy_state = _legacy_state_path()
-    state = _load_json_state(legacy_state) if os.path.isfile(legacy_state) else None
+    install_state = _install_state_path()
+    state = _load_json_state(install_state) if os.path.isfile(install_state) else None
     if state is not None:
         _save_key_state(state)
         print(f"[migrate] key state moved to {_state_path()}", file=sys.stderr)
@@ -131,8 +131,8 @@ def _load_key_state():
     state = _default_state()
     seen = set()
 
-    # Legacy .env file
-    env_path = _old_env_path()
+    # Install-local .env file
+    env_path = _install_env_path()
     if os.path.isfile(env_path):
         with open(env_path, encoding="utf-8-sig") as f:
             for line in f:
@@ -673,7 +673,7 @@ def _render_search_like(data, label, fmt="compact", max_chars=500, dedup=True, e
     results = [{**rec, "rank": i} for i, rec in enumerate(results, 1)]
     body = _render_body(results, fmt=fmt, max_chars=max_chars)
     if fmt == "compact" and body:
-        body += "\n\n(use --format snippet for content previews, --format full for complete content)"
+        body += "\n\n(use --format snippet for content previews, --format full for complete content, or extract <URL> to deep-read one page)"
     elif fmt == "snippet" and body:
         top_url = results[0].get("url", "<URL>") if results else "<URL>"
         body += f"\n\n(use --format full for complete content, or extract {top_url} to deep-read one page)"
@@ -799,79 +799,86 @@ def _cmd_keys(args):
 def main():
     import argparse
 
-    p = argparse.ArgumentParser(prog="anysearch", description="AnySearch probe")
-    p.add_argument("--api_key", default="", help="One-shot key override (bypasses pool)")
+    p = argparse.ArgumentParser(
+        prog="anysearch",
+        description="Probe the web compactly, then extract selected URLs when evidence is needed.",
+    )
+    p.add_argument("--api_key", default="", help="One-shot key override (bypasses the saved key pool)")
     p.add_argument("--rotation", "-r", choices=["fallback", "round-robin"],
-                   default=None, help="Key rotation mode (overrides keys-state.json)")
+                   default=None, help="Key rotation mode for this call")
     p.add_argument("--auto_register", action="store_true", default=None,
-                   help="Auto-register when all keys exhausted (overrides keys-state.json)")
+                   help="Create and save a fresh key if all active keys fail")
     sub = p.add_subparsers(dest="cmd")
 
-    s = sub.add_parser("search")
+    s = sub.add_parser("search", description="Discover candidate URLs for one query.")
     s.add_argument("query")
-    s.add_argument("--domain", "-d")
-    s.add_argument("--sub_domain", "-s")
-    s.add_argument("--sdp", "-p", dest="sdp")
-    s.add_argument("--max_results", "--max-results", "-m", type=int, default=5)
+    s.add_argument("--domain", "-d", help="Vertical domain, e.g. finance or code")
+    s.add_argument("--sub_domain", "-s", help="Sub-domain returned by get_sub_domains")
+    s.add_argument("--sdp", "-p", dest="sdp", help="Sub-domain params as key=value pairs or JSON")
+    s.add_argument("--max_results", "--max-results", "-m", type=int, default=5,
+                   help="Maximum results to request and render (default: 5, max: 10)")
     s.add_argument("--format", choices=["compact", "snippet", "full"], default="compact",
-                   help="compact=title+URL (default), snippet=preview, full=complete content")
+                   help="compact=rank+title+URL (default), snippet=preview, full=complete content")
     s.add_argument("--max-chars", dest="max_chars", type=int, default=500,
                    help="Character budget for snippet mode (default: 500)")
     s.add_argument("--no-dedup", action="store_true",
-                   help="Disable URL deduplication")
+                   help="Keep duplicate canonical URLs")
     s.add_argument("--rotation", "-r", dest="rotation",
                    choices=["fallback", "round-robin"], default=None)
 
-    g = sub.add_parser("get_sub_domains")
-    g.add_argument("--domain")
-    g.add_argument("--domains")
+    g = sub.add_parser("get_sub_domains", description="Fetch live vertical schemas before structured search.")
+    g.add_argument("--domain", help="One vertical domain")
+    g.add_argument("--domains", help="Comma-separated vertical domains")
     g.add_argument("--rotation", "-r", dest="rotation",
                    choices=["fallback", "round-robin"], default=None)
 
-    b = sub.add_parser("batch_search")
+    b = sub.add_parser("batch_search", description="Discover candidates across several query angles and dedupe URLs.")
     b.add_argument("queries", nargs="?")
     b.add_argument("--query", action="append", dest="q_items")
-    b.add_argument("--domain", "-d")
-    b.add_argument("--sub_domain", "-s")
-    b.add_argument("--sdp", "-p", dest="sdp")
-    b.add_argument("--max_results", "--max-results", "-m", type=int, default=5)
+    b.add_argument("--domain", "-d", help="Default vertical domain for queries")
+    b.add_argument("--sub_domain", "-s", help="Default sub-domain returned by get_sub_domains")
+    b.add_argument("--sdp", "-p", dest="sdp", help="Default sub-domain params as key=value pairs or JSON")
+    b.add_argument("--max_results", "--max-results", "-m", type=int, default=5,
+                   help="Maximum results per query (default: 5, max: 10)")
     b.add_argument("--format", choices=["compact", "snippet", "full"], default="compact",
-                   help="compact=title+URL (default), snippet=preview, full=complete content")
+                   help="compact=rank+title+URL (default), snippet=preview, full=complete content")
     b.add_argument("--max-chars", dest="max_chars", type=int, default=500,
                    help="Character budget for snippet mode (default: 500)")
     b.add_argument("--no-dedup", action="store_true",
-                   help="Disable URL deduplication")
+                   help="Keep duplicate canonical URLs")
     b.add_argument("--rotation", "-r", dest="rotation",
                    choices=["fallback", "round-robin"], default=None)
 
-    e = sub.add_parser("extract")
-    e.add_argument("url", nargs="?")
+    e = sub.add_parser("extract", description="Deep-read one selected URL.")
+    e.add_argument("url", nargs="?", help="URL selected from a probe")
     e.add_argument("--format", choices=["compact", "snippet", "full"], default="full",
-                   help="compact=title+URL, snippet=preview, full=complete content (default)")
+                   help="compact=rank+title+URL, snippet=preview, full=complete content (default)")
     e.add_argument("--max-chars", dest="max_chars", type=int, default=500,
                    help="Character budget for snippet mode (default: 500)")
     e.add_argument("--rotation", "-r", dest="rotation",
                    choices=["fallback", "round-robin"], default=None)
 
-    reg = sub.add_parser("register",
-                         description="Register a new account, create an API key, add to pool")
-    reg.add_argument("--username", "-u", default="", help="Custom username (auto-generated if empty)")
-    reg.add_argument("--password", "-p", default="", help="Custom password (auto-generated if empty)")
-    reg.add_argument("--key_name", "-k", default="auto-key", help="Name for the API key")
-    reg.add_argument("--rate_limit", type=int, default=500, help="Rate limit (req/s)")
-    reg.add_argument("--count", "-n", type=int, default=1, help="Number of accounts+keys to create")
-    reg.add_argument("--print_only", action="store_true", help="Print keys without adding to pool")
+    reg = sub.add_parser(
+        "register",
+        description="Create AnySearch account(s), create API key(s), and save them to the pool.",
+    )
+    reg.add_argument("--username", "-u", default="", help="Custom username for the first account")
+    reg.add_argument("--password", "-p", default="", help="Custom password for the first account")
+    reg.add_argument("--key_name", "-k", default="auto-key", help="Name for created API key(s)")
+    reg.add_argument("--rate_limit", type=int, default=500, help="Requested key rate limit")
+    reg.add_argument("--count", "-n", type=int, default=1, help="Number of account+key pairs to create")
+    reg.add_argument("--print_only", action="store_true", help="Print credentials without saving keys to the pool")
 
-    km = sub.add_parser("keys", description="Manage the API key pool")
+    km = sub.add_parser("keys", description="Inspect and configure the saved API key pool.")
     km.add_argument("keys_action", nargs="?", default="list",
                    choices=["list", "prune", "add", "remove", "status", "config"],
-                   help="list (default) | prune dead | add --key_value | remove --key_value | status | config")
-    km.add_argument("--key_value", default="", help="Key string to add/remove")
-    km.add_argument("--key_name", default="", help="Name for add")
+                   help="list (default) | status | add | remove | prune | config")
+    km.add_argument("--key_value", default="", help="Full key value for add/remove")
+    km.add_argument("--key_name", default="", help="Display name for keys add")
     km.add_argument("--rotation", choices=["fallback", "round-robin"], default=None,
-                   help="Set rotation mode (config action)")
+                   help="Set rotation mode with keys config")
     km.add_argument("--auto_register", type=lambda x: x.lower() in ("1", "true", "yes", "on"),
-                   default=None, help="Set auto_register on/off (config action)")
+                   default=None, help="Set persistent auto-register on/off with keys config")
 
     a = p.parse_args()
     if not a.cmd:
