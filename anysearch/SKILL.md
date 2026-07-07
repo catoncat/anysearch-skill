@@ -78,6 +78,10 @@ Options used most often:
 - `--max-chars N` — snippet character budget, default 500.
 - `--no-dedup` — keep duplicate URLs only when duplicates are meaningful.
 - `--domain`, `--sub_domain`, `--sdp` — vertical controls; call `get_sub_domains` first.
+- `--reader auto|local|remote|anysearch` — `extract` body backend. `auto`
+  (default) prefers local readability when installed, else tries remote
+  readers in series, else the AnySearch API; `anysearch` forces the API. See
+  [references/payload-control.md](references/payload-control.md).
 
 `--sdp` accepts `key=value` pairs or JSON. Params marked required must all be
 passed; if a required value is unavailable, pass an empty string (`key=`) rather

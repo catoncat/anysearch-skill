@@ -124,3 +124,40 @@ When changing payload rendering or CLI help, verify:
 - Metadata byte count matches the rendered body size.
 - Format hints appear once for compact/snippet and never for full.
 - CLI `--help`, `SKILL.md`, and this reference use the same vocabulary.
+
+## Extract reader backends
+
+`extract` pulls page body through a serial fallback chain, controlled by
+`--reader`:
+
+| `--reader` | Path | When |
+|---|---|---|
+| `auto` (default) | local readability executable → remote readers in series → AnySearch API | Normal use; each rung fires only if the prior one fails, so a normal extract consumes at most one remote quota. |
+| `local` | detected `defuddle` executable only | Offline, privacy, or reproducibility; needs the optional install below. |
+| `remote` | `r.jina.ai`, then `defuddle.md` on failure | No local install, no AnySearch key. |
+| `anysearch` | Original AnySearch `extract` tool | When you want the API's own rendering, or as last resort. |
+
+Remote readers are tried **in series** (jina first, defuddle only if jina
+fails), not in parallel. A normal extract costs one reader's quota; the
+second reader fires only on failure, so it never wastes quota on a fast win.
+Each remote request has an 8 s timeout.
+
+When `auto`/`local`/`remote` all fail and the call falls back to the AnySearch
+API, the CLI prints one stderr line noting the fallback and the install hint.
+
+### Optional: local readability (no Python dependency)
+
+`local` and the first rung of `auto` shell out to `defuddle` on `PATH` — **no
+`pip install`**. The skill detects a globally-installed `defuddle`, else falls
+back to `npx --yes defuddle` which fills the npm cache on first run (not a
+global install) and reuses it after. Output is clean Markdown.
+
+```bash
+# recommended — needs Node; outputs clean Markdown
+npm i -g defuddle
+# (or just run `npx defuddle` once to fill the npm cache, no global install)
+```
+
+Install it and `extract` picks it up automatically — no config change. The
+skill stays stdlib-only; nothing is `pip`-installed. Without it, `extract`
+falls back to the remote readers, then the AnySearch API.
