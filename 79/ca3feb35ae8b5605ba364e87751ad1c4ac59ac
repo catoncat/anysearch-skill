@@ -1,0 +1,21 @@
+anysearch/scripts/anysearch.py
+  s_4cb81c9c005bbf::t_0fafa249261cd0 617-625
+anysearch/SKILL.md
+  s_4cb81c9c005bbf::t_56051b1330b776 92-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "79ca3feb35ae8b5605ba364e87751ad1c4ac59ac",
+  "prompts": {},
+  "sessions": {
+    "s_4cb81c9c005bbf": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3bff-c9c8-7e84-9b02-ad5eb7f0ac8b",
+        "model": "glm-5.2:cloud"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
