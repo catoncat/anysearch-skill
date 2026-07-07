@@ -1,0 +1,23 @@
+SKILL.md
+  s_656b0f0aea777c::t_55ac9c554beab5 10-11,16,18-20,22,24,26-32,34,36-41,46-47,49-50,52-53,55-57,59-60,63,65-68,70,72-76,78-79,82-87,90-96,98-100,103-104,106-108,111,113-120,122,124-125,127-134,137,139-150,153-159
+references/design-v2.md
+  s_656b0f0aea777c::t_ec3e5fca5e8df8 126-127,138,433-435,483,519-520
+scripts/anysearch.py
+  s_656b0f0aea777c::t_290c88f2939ea2 471,475,478,482,485-497,567,616
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c996d77072146b83302dce652a10a59d66aab863",
+  "prompts": {},
+  "sessions": {
+    "s_656b0f0aea777c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3a9d-af2f-7c33-9769-b8d3fb46f467",
+        "model": "gpt-5.5"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
