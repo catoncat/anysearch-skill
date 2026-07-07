@@ -1,0 +1,21 @@
+README.md
+  s_91feebf9ca3890::t_c5ca1de668af27 1,3-9,17,29,51,57,63,73,81,92-101,105,113,119,123-128,132
+.gitignore
+  s_91feebf9ca3890::t_6a6733ec638348 13-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "43e101f085ef1d2223e102d2683e67953a71aaff",
+  "prompts": {},
+  "sessions": {
+    "s_91feebf9ca3890": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3b4b-6303-7cf3-9bc6-e81930b09c2d",
+        "model": "grok-composer-2.5-fast"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
