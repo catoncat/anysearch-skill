@@ -1,7 +1,9 @@
 # AnySearch Skill
 
 <p align="center">
-  <img src="assets/anysearch-mascot-banner.png?v=4" alt="AnySearch skill mascot — probe the web, extract what matters" width="100%" />
+  <a href="https://github.com/catoncat/anysearch-skill/blob/main/assets/anysearch-mascot-banner.png?raw=true">
+    <img src="https://raw.githubusercontent.com/catoncat/anysearch-skill/main/assets/anysearch-mascot-banner.png" alt="AnySearch skill mascot — probe the web, extract what matters" width="100%" />
+  </a>
 </p>
 
 Agent-friendly **AnySearch** for coding agents: a Pi/Codex-style skill plus a bundled stdlib-only CLI that keeps web discovery cheap, then deep-reads only the sources worth putting in context.
