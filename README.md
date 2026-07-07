@@ -59,6 +59,15 @@ No config change needed. Without it, `extract` falls back to hosted readers
 reader fires only if the prior one fails, so a normal extract costs at most one
 reader's quota.
 
+How the chain fits together — `local` is the default main path (usually
+lands clean); the rest is a fallback safety net, with the AnySearch API as the
+degraded last resort (the only rung that still returns chrome):
+
+![extract reader fallback chain — local is the main path, API is the last-resort dirty path](assets/extract-flow-illustrations/02-fallback-chain-v2.png)
+
+See [references/payload-control.md](anysearch/references/payload-control.md) for
+the full `--reader` backend table.
+
 ## Quick use
 
 ```bash
