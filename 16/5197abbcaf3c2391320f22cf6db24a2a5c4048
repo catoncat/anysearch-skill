@@ -1,0 +1,19 @@
+README.md
+  s_91feebf9ca3890::t_17fcd1da0b965b 4,128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "165197abbcaf3c2391320f22cf6db24a2a5c4048",
+  "prompts": {},
+  "sessions": {
+    "s_91feebf9ca3890": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3b4b-6303-7cf3-9bc6-e81930b09c2d",
+        "model": "grok-composer-2.5-fast"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
