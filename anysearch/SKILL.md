@@ -89,12 +89,16 @@ than omitting the key.
 
 ## Key recovery branch
 
-Normal searches use anonymous access or the saved key pool automatically. If a
-probe fails because access is unavailable:
+Normal searches use anonymous access or the saved key pool automatically.
+`auto_register` is **on by default**: if no active key can serve a probe, the
+CLI creates a throwaway account and key for you and stores them locally — so
+most access failures self-heal without agent action. Step in only when that
+itself fails or the user wants to manage keys:
 
-1. Run `<cmd> keys status`.
-2. If no active key can serve the request, run `<cmd> register` or retry the
-   original command with global `--auto_register` before the subcommand.
+1. Run `<cmd> keys status` to see the pool.
+2. If auto-register failed or the user wants explicit control, run
+   `<cmd> register`, or `keys config --auto_register false` to turn the
+   default off, then retry.
 3. Repeat the original smallest suitable probe.
 4. Never print full API keys in the final answer.
 
