@@ -42,11 +42,17 @@ $CMD batch_search --query "PostgreSQL performance" --query "MySQL performance" -
 
 ## Key pool state
 
-Runtime key state is local and ignored by Git:
+Runtime key state is local, ignored by Git, and stored outside the install
+directory so `npx skills add/update` can safely overwrite the skill:
 
 ```text
-~/.agents/skills/anysearch/keys-state.json
+macOS:   ~/Library/Application Support/anysearch/keys-state.json
+Linux:   ${XDG_CONFIG_HOME:-~/.config}/anysearch/keys-state.json
+Windows: %APPDATA%\\AnySearch\\keys-state.json
 ```
+
+Legacy install-local `keys-state.json` / `.env` files are migrated on first run.
+Use `ANYSEARCH_CONFIG_DIR=/custom/path` to override the location.
 
 Use the CLI to manage it:
 

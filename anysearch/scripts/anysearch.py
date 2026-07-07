@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """AnySearch probe — stdlib-only CLI with multi-key rotation + state tracking.
 
-Key pool state lives in keys-state.json (single source of truth):
+Key pool state lives in the OS user config directory (single source of truth):
   {
     "rr_index": 0,
     "rotation": "fallback",       # fallback | round-robin
@@ -39,11 +39,35 @@ _DEAD_SIGNALS = ("invalid_api_key", "quota_exhausted", "rate_limit", "limit_exce
 def _skill_dir():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
+
+def _config_dir():
+    """Cross-platform user config directory for runtime state.
+
+    Override with ANYSEARCH_CONFIG_DIR for tests or unusual deployments.
+    """
+    override = os.environ.get("ANYSEARCH_CONFIG_DIR", "").strip()
+    if override:
+        return os.path.abspath(os.path.expanduser(override))
+    if sys.platform.startswith("win"):
+        base = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+        return os.path.join(base, "AnySearch")
+    if sys.platform == "darwin":
+        return os.path.join(os.path.expanduser("~"), "Library", "Application Support", "anysearch")
+    base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
+    return os.path.join(base, "anysearch")
+
+
 def _state_path():
+    return os.path.join(_config_dir(), "keys-state.json")
+
+
+def _legacy_state_path():
+    """Old install-local state path; migrated to _state_path() on first run."""
     return os.path.join(_skill_dir(), "keys-state.json")
 
+
 def _old_env_path():
-    """Legacy .env path — only used for one-time migration."""
+    """Legacy install-local .env path — only used for one-time migration."""
     return os.path.join(_skill_dir(), ".env")
 
 
@@ -68,24 +92,40 @@ def _new_key_entry(key, source="manual", name=None):
     }
 
 
-def _load_key_state():
-    """Load key pool state from keys-state.json.
+def _normalise_state(state):
+    state.setdefault("rr_index", 0)
+    state.setdefault("rotation", "fallback")
+    state.setdefault("auto_register", True)
+    state.setdefault("keys", [])
+    return state
 
-    On first run, migrates from .env (if it exists) or ANYSEARCH_API_KEYS env var.
+
+def _load_json_state(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return _normalise_state(json.load(f))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _load_key_state():
+    """Load key pool state from the OS config dir.
+
+    First run migrates legacy install-local keys-state.json/.env and env vars.
+    Keeping runtime state outside the skill directory lets npx/skills reinstall
+    overwrite code without deleting keys.
     """
     path = _state_path()
-    if os.path.isfile(path):
-        try:
-            with open(path, encoding="utf-8") as f:
-                state = json.load(f)
-            # Backfill missing fields for forward-compat
-            state.setdefault("rr_index", 0)
-            state.setdefault("rotation", "fallback")
-            state.setdefault("auto_register", True)
-            state.setdefault("keys", [])
-            return state
-        except (json.JSONDecodeError, OSError):
-            pass
+    state = _load_json_state(path) if os.path.isfile(path) else None
+    if state is not None:
+        return state
+
+    legacy_state = _legacy_state_path()
+    state = _load_json_state(legacy_state) if os.path.isfile(legacy_state) else None
+    if state is not None:
+        _save_key_state(state)
+        print(f"[migrate] key state moved to {_state_path()}", file=sys.stderr)
+        return state
 
     # First run — migrate from .env or env vars
     state = _default_state()
@@ -135,8 +175,13 @@ def _load_key_state():
 
 def _save_key_state(state):
     try:
+        os.makedirs(_config_dir(), mode=0o700, exist_ok=True)
         with open(_state_path(), "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2, ensure_ascii=False)
+        try:
+            os.chmod(_state_path(), 0o600)
+        except OSError:
+            pass
     except OSError as e:
         print(f"[warn] Could not save key state: {e}", file=sys.stderr)
 
@@ -730,6 +775,7 @@ def _cmd_keys(args):
         dead = [e for e in state["keys"] if e["status"] != "active"]
         total_calls = sum(e["call_count"] for e in state["keys"])
         print(json.dumps({
+            "state_path": _state_path(),
             "total_keys": len(state["keys"]),
             "active": len(active),
             "dead": len(dead),

@@ -104,14 +104,21 @@ passed; if a value is N/A, pass empty string (`key=`).
 
 ## Key bootstrap
 
-Anonymous access works with lower limits. Key pool state lives in
-`keys-state.json` next to `SKILL.md` and is intentionally not committed.
+Anonymous access works with lower limits. Key pool state lives outside the
+install directory so `npx skills add/update` can overwrite the skill without
+wiping keys:
 
-The skill should remain usable without manual setup:
+- macOS: `~/Library/Application Support/anysearch/keys-state.json`
+- Linux: `${XDG_CONFIG_HOME:-~/.config}/anysearch/keys-state.json`
+- Windows: `%APPDATA%\\AnySearch\\keys-state.json`
+- Override: `ANYSEARCH_CONFIG_DIR=/custom/path`
 
-1. On normal calls, use the existing pool automatically.
-2. If keys are exhausted, invalid, rate-limited, or absent, the script can auto-register a fresh AnySearch account/key and add it to the pool.
-3. If a call fails because access is unavailable, run `register` once, then retry the original probe.
+The skill should remain usable after install/reinstall:
+
+1. On normal calls, use the existing OS config key pool automatically.
+2. On first run, migrate legacy install-local `keys-state.json` / `.env` into the OS config dir.
+3. If keys are exhausted, invalid, rate-limited, or absent, auto-register can create a fresh AnySearch account/key and add it to the pool.
+4. If a call fails because access is unavailable, run `register` once, then retry the original probe.
 
 ```bash
 # Inspect state without revealing full keys
