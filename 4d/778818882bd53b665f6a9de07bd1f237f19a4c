@@ -1,0 +1,19 @@
+.gitignore
+  s_4cb81c9c005bbf::t_8710feb33dfa38 15-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4d778818882bd53b665f6a9de07bd1f237f19a4c",
+  "prompts": {},
+  "sessions": {
+    "s_4cb81c9c005bbf": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3bff-c9c8-7e84-9b02-ad5eb7f0ac8b",
+        "model": "glm-5.2:cloud"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
