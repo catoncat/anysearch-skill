@@ -1,0 +1,34 @@
+README.md
+  s_fbd135b11754ad::t_f4313a0fbc27d1 13,15-19
+  s_fbd135b11754ad::t_d7ed30099d8962 3-5,21-31,33,35-39,41,45-75,77-83,86-91,93-110,115,118,121,124-128,130,132-136
+  s_fbd135b11754ad::t_e0e20f28369cde 20
+anysearch/.gitignore
+  s_fbd135b11754ad::t_7ade3cdffcc8cf 4
+anysearch/scripts/anysearch.py
+  s_fbd135b11754ad::t_8824079d472a85 2,802-806,808,810,813,815-819,821,825,829-831,835,838-842,844,848,852-853,855
+  s_fbd135b11754ad::t_ef02ca63a50bb2 676
+  s_fbd135b11754ad::t_7e6ec0b90f8ed6 64-65,69-70,114,123-124,134-135
+  s_fbd135b11754ad::t_e5b4a5c0859c38 861-872,875-877,879,881
+anysearch/references/payload-control.md
+  s_fbd135b11754ad::t_428187eb1208b1 1-126
+anysearch/SKILL.md
+  s_fbd135b11754ad::t_a790356282155e 4-7,12,14,16,18-25,27,29-32,34,36-43,51,55-56,58,65-68,74,78-80,83-84,86,88-89,91-95,97-98,102-104,106-107
+anysearch/references/keys.md
+  s_fbd135b11754ad::t_4c52ac532dc326 1-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "937e4fb0b166319f25fd56ff0c9471028c8daa4e",
+  "prompts": {},
+  "sessions": {
+    "s_fbd135b11754ad": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3b42-df4d-75e3-8472-4fc1e7c23f9f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
