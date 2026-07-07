@@ -1,0 +1,25 @@
+.gitignore
+  s_67c567282396ef::t_6f83274ad19c7f 1-13
+LICENSE
+  s_67c567282396ef::t_53fea09cf9276b 1-21
+README.md
+  s_67c567282396ef::t_1ffefe29e0b746 1-65
+keys-state.example.json
+  s_67c567282396ef::t_0178160d2b64d5 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9e92bf99b71d6eb3e71dbd695db79f80cb1bbce4",
+  "prompts": {},
+  "sessions": {
+    "s_67c567282396ef": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3aea-c6b3-7dc7-acba-649aa45f31a8",
+        "model": "glm-5.2:cloud"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
