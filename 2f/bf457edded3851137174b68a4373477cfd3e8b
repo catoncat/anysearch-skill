@@ -1,0 +1,21 @@
+SKILL.md
+  s_67c567282396ef::t_91632a7d1fdcbf 40,57,60
+scripts/anysearch.py
+  s_67c567282396ef::t_3c0c4d90aa9934 30,353,364,377,387,414,425,438,458-635,754-760,776-782,788-791,871-875,889-892,919-925,929-930
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2fbf457edded3851137174b68a4373477cfd3e8b",
+  "prompts": {},
+  "sessions": {
+    "s_67c567282396ef": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3aea-c6b3-7dc7-acba-649aa45f31a8",
+        "model": "glm-5.2"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
