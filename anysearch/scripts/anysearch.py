@@ -5,7 +5,7 @@ Key pool state lives in keys-state.json (single source of truth):
   {
     "rr_index": 0,
     "rotation": "fallback",       # fallback | round-robin
-    "auto_register": false,       # auto-register when all keys exhausted
+    "auto_register": true,        # auto-register when all keys exhausted
     "keys": [
       {
         "key": "as_sk_xxx",
@@ -50,7 +50,7 @@ def _old_env_path():
 # ── key state: single source of truth ─────────────────────────────────────────
 
 def _default_state():
-    return {"rr_index": 0, "rotation": "fallback", "auto_register": False, "keys": []}
+    return {"rr_index": 0, "rotation": "fallback", "auto_register": True, "keys": []}
 
 
 def _new_key_entry(key, source="manual", name=None):
@@ -81,7 +81,7 @@ def _load_key_state():
             # Backfill missing fields for forward-compat
             state.setdefault("rr_index", 0)
             state.setdefault("rotation", "fallback")
-            state.setdefault("auto_register", False)
+            state.setdefault("auto_register", True)
             state.setdefault("keys", [])
             return state
         except (json.JSONDecodeError, OSError):
@@ -380,6 +380,16 @@ def _rotate_fallback(tool, args, pool, auto_register=False):
 def _rotate_round_robin(tool, args, pool, auto_register=False):
     """Round-robin: next key in pool; mark dead in state; skip to next alive."""
     if not pool:
+        if auto_register:
+            fresh_key = _auto_register()
+            if fresh_key:
+                data, err = _raw_call(tool, args, fresh_key)
+                if err:
+                    print(f"[fresh key] {err} — falling back to anonymous…", file=sys.stderr)
+                elif not _is_dead_key(data):
+                    _mark_key_used(fresh_key)
+                    print(f"[hit] fresh key ({fresh_key[:12]}…)", file=sys.stderr)
+                    return data, None
         data, err = _raw_call(tool, args, "")
         if err:
             sys.exit(err)

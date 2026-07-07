@@ -1,63 +1,94 @@
 ---
 name: anysearch
 description: >-
-  Probe the web for external information via AnySearch API. Use when the agent
-  needs to look up, find, search, research, verify, check, investigate, or gather
-  facts, news, prices, papers, code, people, companies, products, places, events,
-  documentation, or any knowledge not already in context. Covers general web
-  search, vertical domain search (finance, academic, code, health, legal,
-  security, travel, energy, environment, agriculture, business, ip, gaming,
-  film, social_media), parallel batch search, and URL extraction. Agent-friendly
-  payload controls default to compact search results to avoid context blowups.
+  Probe the web with AnySearch when the agent needs external facts, current
+  information, source discovery, vertical search, parallel comparison, or URL
+  extraction. Use for look up, search, research, verify, investigate, gather
+  sources, news, prices, papers, code, people, companies, products, places,
+  events, documentation, and knowledge not already in context. Defaults to a
+  light probe with compact results, then escalates to snippet/full extraction
+  only when the task needs more evidence. Includes key-pool rotation and
+  auto-register bootstrap when anonymous/keyed access stops working.
 ---
 
 # anysearch
 
-**Probe → Extract** with AnySearch.
+**Probe lightly, then extract deliberately.**
 
-- `search` / `batch_search` are for **discovery**: find candidate URLs.
-- `extract` is for **deep-read**: read one chosen URL.
-- Default search output is compact to protect context; explicitly ask for more.
+AnySearch has four primitives:
+
+- `search` — discover candidate URLs for one query.
+- `batch_search` — discover candidates across 2–5 angles, deduped by URL.
+- `extract` — deep-read one selected URL.
+- `get_sub_domains` — discover live vertical schemas before structured search.
 
 `<cmd>` = `python3 <skill-dir>/scripts/anysearch.py`.
 
-## Format decision
+## Effort ladder
 
-| Agent is... | Use | Results | Then |
-|---|---|---:|---|
-| **Exploring**: “what exists on X?” | `search --format compact` | 5–10 | scan titles → `extract <URL>` winners |
-| **Evaluating**: “is this relevant?” | `search --format snippet` | 3–5 | if confirmed → `extract <URL>` |
-| **Deep-reading**: “give me full search results” | `search --format full` | 1–3 | done |
-| **Comparing**: “N aspects of X” | `batch_search --format compact` | 5/query | extract distinct winners |
-| **Quick answer**: “top hit is enough” | `search --format full --max-results 1` | 1 | done |
+Default to the lightest probe that can answer the user. Escalate only when the
+previous rung cannot satisfy the task.
+
+| User need | Rung | Do | Completion |
+|---|---|---|---|
+| Quick lookup, sanity check, “what exists?” | **Light probe** | `search --format compact --max-results 5` | Titles/URLs answer the need, or useful candidates are visible. |
+| Answer needs evidence or source choice | **Standard probe** | `search --format compact --max-results 8` → `extract` 1–3 winners | Answer is grounded in selected sources, not raw search noise. |
+| Relevance is unclear before reading | **Sample probe** | `search --format snippet --max-results 3 --max-chars 500` | Candidate relevance is clear enough to pick winners or stop. |
+| Comparison, landscape, strategy, multi-angle research | **Deep probe** | `batch_search` with 3–5 queries, `--format compact --max-results 5` → extract 3–5 distinct winners | Distinct angles are covered; repeated URLs are not re-read. |
+| Ticker, DOI, CVE, package/code, flight, legal/medical/finance identifier | **Vertical probe** | `get_sub_domains` → `search --domain ... --sub_domain ... --sdp ...` | Required params came from live schema, not guessing. |
+| User asks for one top answer and accepts narrow evidence | **Quick full** | `search --format full --max-results 1` | Top result is enough; do not broaden unless it looks wrong. |
+
+Upgrade rules:
+
+1. Start with **Light** unless the prompt clearly asks for comparison, deep research, or a vertical identifier.
+2. Move from compact → snippet → full only when needed; `full` is never the default discovery mode.
+3. Use `extract` only after choosing URLs from search output.
+4. Use `batch_search` when one query would bias the answer or the user asks for tradeoffs, strategy, trends, competitors, or “what do people think?”.
+5. For vertical search, never invent `sub_domain` or `sub_domain_params`; call `get_sub_domains` live.
+
+## Payload modes
+
+| Format | Output | Use |
+|---|---|---|
+| `compact` | `#N`, title, URL | First-pass discovery; safest for context. |
+| `snippet` | compact + first `--max-chars` chars | Judge relevance before extraction. |
+| `full` | complete API text | Top-hit answer or selected source only. |
 
 Notes:
 
-1. `compact` = rank + title + URL. `snippet` = compact + first N chars. `full` = complete API content.
-2. `snippet` is positional, not semantic. It skips obvious nav/ad lead noise, then takes the first `--max-chars` chars. For blogs/news with heavy chrome, confirm with `extract`.
-3. `--format` trims client-side. AnySearch still sends full data to the script; this saves **agent context**, not network latency.
-4. Search and batch dedup by canonical URL by default. Use `--no-dedup` only when duplicates matter.
-5. `#N` rank is the relevance signal; AnySearch does not expose a numeric score.
-6. `extract` defaults to `--format full` because the URL has already been selected.
+- `snippet` is positional, not semantic. It skips obvious nav/ad lead noise, then truncates.
+- `--format` trims client-side: it saves **agent context**, not network latency.
+- Search and batch dedup by canonical URL by default. Use `--no-dedup` only when duplicates matter.
+- `#N` rank is the relevance signal; AnySearch does not expose a numeric score.
+- `extract` defaults to `--format full` because a URL has already been selected; use `extract --format snippet` for cheap confirmation.
 
 ## Commands
 
 ```bash
-# General discovery (safe default: compact)
-<cmd> search "Cloudflare Workers 2026" --format compact --max-results 8
+# Light probe
+<cmd> search "Cloudflare Workers 2026" --format compact --max-results 5
 
-# Evaluate candidates with short previews
-<cmd> search "Python asyncio gather exception handling" --format snippet --max-results 3 --max-chars 500
+# Standard probe: discover, then read selected winners
+<cmd> search "WebGPU browser support 2025" --format compact --max-results 8
+<cmd> extract "https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API"
 
-# Quick one-shot answer
+# Sample probe
+<cmd> search "Rust async runtime comparison" --format snippet --max-results 4 --max-chars 400
+
+# Quick full
 <cmd> search "current US inflation rate 2025" --format full --max-results 1
 
-# Deep-read a chosen URL
-<cmd> extract "https://example.com/article"                 # full by default
-<cmd> extract "https://example.com/article" --format snippet --max-chars 800
+# Deep probe
+<cmd> batch_search \
+  --query "Cloudflare Workers deployment" \
+  --query "Cloudflare Workers observability" \
+  --query "Cloudflare Workers pricing" \
+  --format compact --max-results 5
 
-# Batch comparison (max 5 queries, dedup on by default)
-<cmd> batch_search --query "PostgreSQL performance" --query "MySQL performance" --format compact --max-results 5
+# Vertical probe: schema first, then search with confirmed params
+<cmd> get_sub_domains --domains finance,code
+<cmd> search "AAPL" --domain finance --sub_domain finance.quote \
+  --sdp type=stock,symbol=AAPL,cn_code= --format compact --max-results 3
 ```
 
 Options:
@@ -66,89 +97,44 @@ Options:
 - `--max-results N` / `--max_results N` / `-m N` — cap results, max 10.
 - `--max-chars N` — snippet char budget, default 500.
 - `--no-dedup` — disable URL dedup for search/batch.
-
-## Route first
-
-| Signal | Path | First call |
-|---|---|---|
-| General knowledge, news, opinions, concepts — no structured identifier | **General** | `search --format compact` |
-| Structured identifier (ticker, DOI, CVE, IATA) or specialized vertical | **Vertical** | `get_sub_domains` → `search` |
-| Ambiguous or crosses multiple aspects | **Hybrid** | `batch_search --format compact` |
-
-Before passing `--domain` to `search`, call `get_sub_domains` first. The
-`sub_domain` and required `sub_domain_params` come from live output — never guess.
-
-```bash
-# Discover vertical schema first
-<cmd> get_sub_domains --domains finance,code
-
-# Then call vertical search with confirmed params
-<cmd> search "AAPL" --domain finance --sub_domain finance.quote \
-  --sdp type=stock,symbol=AAPL,cn_code= --format compact --max-results 3
-```
+- `--domain`, `--sub_domain`, `--sdp` — vertical search controls; call `get_sub_domains` first.
 
 `--sdp` accepts `key=value` pairs or JSON. Params marked required must all be
 passed; if a value is N/A, pass empty string (`key=`).
 
-## End-to-end patterns
-
-### Explore then extract
-
-```bash
-<cmd> search "WebGPU browser support 2025" --format compact --max-results 8
-# choose authoritative URLs from #1..#8
-<cmd> extract "https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API"
-```
-
-### Evaluate before committing context
-
-```bash
-<cmd> search "Rust async runtime comparison" --format snippet --max-results 4 --max-chars 400
-# if one result is promising, deep-read it
-<cmd> extract "https://tokio.rs/tokio/tutorial"
-```
-
-### Compare several angles
-
-```bash
-<cmd> batch_search \
-  --query "Cloudflare Workers deployment" \
-  --query "Cloudflare Workers observability" \
-  --query "Cloudflare Workers pricing" \
-  --format compact --max-results 5
-# deduped candidate list → extract 2–4 winners
-```
-
-## Key pool
+## Key bootstrap
 
 Anonymous access works with lower limits. Key pool state lives in
-`keys-state.json` next to `SKILL.md`.
+`keys-state.json` next to `SKILL.md` and is intentionally not committed.
+
+The skill should remain usable without manual setup:
+
+1. On normal calls, use the existing pool automatically.
+2. If keys are exhausted, invalid, rate-limited, or absent, the script can auto-register a fresh AnySearch account/key and add it to the pool.
+3. If a call fails because access is unavailable, run `register` once, then retry the original probe.
 
 ```bash
-<cmd> keys list                         # status, call_count, last_used per key
-<cmd> keys status                       # JSON summary
-<cmd> keys add --key_value as_sk_xxx    # add existing key
-<cmd> keys remove --key_value as_sk_xxx # remove key
-<cmd> keys prune                        # remove dead keys
-<cmd> keys config --rotation round-robin
+# Inspect state without revealing full keys
+<cmd> keys status
+<cmd> keys list
+
+# Seed or expand the pool
+<cmd> register                 # create 1 account+key and add it
+<cmd> register -n 5            # create 5 accounts+keys
+
+# Make unattended recovery persistent
 <cmd> keys config --auto_register true
-```
+<cmd> keys config --rotation fallback       # default: key1 until exhausted → key2
+<cmd> keys config --rotation round-robin    # spread calls across active keys
 
-Rotation modes:
-
-- `fallback`: key1 until exhausted → key2 → … → anonymous.
-- `round-robin`: cycle keys on each call; dead keys are skipped.
-
-When a key returns `invalid_api_key`, quota, or rate-limit errors, the script
-marks it dead and rotates. If all keys are dead, it falls back to anonymous or
-auto-registers if enabled.
-
-```bash
-<cmd> register                 # register account + create key + add to pool
-<cmd> register -n 3            # create 3 accounts+keys
-<cmd> register --print_only    # print credentials/key without adding
+# One-shot recovery for a single call
 <cmd> --auto_register search "query" --format compact
 ```
+
+Agent rule: when AnySearch fails from quota/rate-limit/invalid-key/no-active-key,
+do **not** abandon search. First run `keys status`; if no active key can serve the
+request, run `register` or retry with `--auto_register`, then repeat the original
+lightest suitable probe. Do not print full keys in the final answer.
 
 ## References
 
