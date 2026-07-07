@@ -630,6 +630,119 @@ def _skip_lead_noise(body, budget=200):
     return trimmed or body.strip()
 
 
+# ── extract reader backends ───────────────────────────────────────────────────
+_READER_PER_TIMEOUT = 8
+_MIN_READER_BODY = 200
+
+
+def _extract_local(url):
+    """Local readability via a detected defuddle executable on PATH — no Python
+    import, no pip. Tries a globally-installed `defuddle`, else `npx` which fills
+    the npm cache on first run (not a global install). Returns markdown or None;
+    the caller degrades to remote readers when neither is present.
+    """
+    import shutil
+    import subprocess
+
+    if shutil.which("defuddle"):
+        args = ["defuddle", "parse", url, "--markdown"]
+        timeout = _READER_PER_TIMEOUT
+    elif shutil.which("npx"):
+        args = ["npx", "--yes", "defuddle", "parse", url, "--markdown"]
+        timeout = 30  # first npx run populates the npm cache; later runs reuse it
+    else:
+        return None
+    try:
+        out = subprocess.run(args, capture_output=True, timeout=timeout, text=True)
+        if out.returncode == 0 and out.stdout:
+            md = out.stdout.strip()
+            if len(md) >= _MIN_READER_BODY:
+                return md
+    except Exception:
+        pass
+    return None
+
+
+def _strip_reader_frontmatter(raw, name):
+    """Peel the reader-specific header so _parse_blob sees clean body text."""
+    if name == "jina":
+        marker = "Markdown Content:"
+        idx = raw.find(marker)
+        return raw[idx + len(marker):].strip() if idx >= 0 else raw.strip()
+    # defuddle ships YAML frontmatter delimited by leading '---'
+    if raw.startswith("---"):
+        end = raw.find("\n---", 3)
+        if end >= 0:
+            return raw[end + 4:].strip()
+    return raw.strip()
+
+
+def _fetch_jina(url):
+    """Fetch via r.jina.ai. Returns stripped markdown or None."""
+    try:
+        req = urllib.request.Request(
+            f"https://r.jina.ai/{url}",
+            headers={"Accept": "text/markdown", "X-No-Cache": "true"})
+        with urllib.request.urlopen(req, timeout=_READER_PER_TIMEOUT) as r:
+            charset = r.headers.get_content_charset() or "utf-8"
+            raw = r.read().decode(charset, "replace")
+        md = _strip_reader_frontmatter(raw, "jina")
+        return md if md and len(md) >= _MIN_READER_BODY else None
+    except Exception:
+        return None
+
+
+def _fetch_defuddle(url):
+    """Fetch via defuddle.md. Returns stripped markdown or None."""
+    try:
+        req = urllib.request.Request(f"https://defuddle.md/{url}")
+        with urllib.request.urlopen(req, timeout=_READER_PER_TIMEOUT) as r:
+            charset = r.headers.get_content_charset() or "utf-8"
+            raw = r.read().decode(charset, "replace")
+        md = _strip_reader_frontmatter(raw, "defuddle")
+        return md if md and len(md) >= _MIN_READER_BODY else None
+    except Exception:
+        return None
+
+
+def _readers_fallback(url):
+    """Try remote readers in series: jina first, defuddle on failure.
+
+    Serial rather than parallel so a normal extract consumes only one reader's
+    quota — a request that fails fast never triggers the next reader.
+    Returns (name, markdown) or (None, None).
+    """
+    for name, fetcher in (("jina", _fetch_jina), ("defuddle", _fetch_defuddle)):
+        md = fetcher(url)
+        if md:
+            return name, md
+    return None, None
+
+
+def _extract_via_reader(url, reader="auto"):
+    """Choose a body backend.
+
+    Returns (source, markdown); markdown is None when the caller should fall
+    back to the original AnySearch extract tool.
+    """
+    if reader == "anysearch":
+        return "anysearch", None
+    if reader == "local":
+        md = _extract_local(url)
+        return ("local", md) if md else ("anysearch", None)
+    if reader == "remote":
+        name, md = _readers_fallback(url)
+        return (name, md) if md else ("anysearch", None)
+    # auto (default): local first, then remote fallback, then anysearch
+    md = _extract_local(url)
+    if md:
+        return "local", md
+    name, md = _readers_fallback(url)
+    if md:
+        return name, md
+    return "anysearch", None
+
+
 def _clip(text, max_chars):
     text = text.strip()
     if len(text) <= max_chars:
@@ -855,6 +968,10 @@ def main():
                    help="compact=rank+title+URL, snippet=preview, full=complete content (default)")
     e.add_argument("--max-chars", dest="max_chars", type=int, default=500,
                    help="Character budget for snippet mode (default: 500)")
+    e.add_argument("--reader", choices=["auto", "local", "remote", "anysearch"], default="auto",
+                   help="Body extraction backend: auto=local defuddle if present else "
+                        "remote reader fallback (default); local=defuddle only; "
+                        "remote=jina then defuddle; anysearch=original API")
     e.add_argument("--rotation", "-r", dest="rotation",
                    choices=["fallback", "round-robin"], default=None)
 
@@ -994,8 +1111,21 @@ def main():
 
     elif a.cmd == "extract":
         if not a.url: sys.exit("Error: url required")
-        _dispatch("extract", {"url": a.url}, lambda data, elapsed: _render_extract(
-            data, a.url, fmt=a.format, max_chars=a.max_chars, elapsed=elapsed))
+        start = time.perf_counter()
+        source, md = _extract_via_reader(a.url, reader=a.reader)
+        elapsed = time.perf_counter() - start
+        if md:
+            data = {"result": {"content": [{"type": "text", "text": md}]}}
+            print(_render_extract(data, a.url, fmt=a.format, max_chars=a.max_chars, elapsed=elapsed))
+            print(f"[extract] source={source}  {elapsed:.1f}s", file=sys.stderr)
+        else:
+            # reader path empty or forced via --reader anysearch → original API
+            if a.reader != "anysearch":
+                hint = "[extract] readers unavailable — fell back to AnySearch API."
+                hint += " Install `defuddle` (npm i -g defuddle, needs node) for cleaner local extraction."
+                print(hint, file=sys.stderr)
+            _dispatch("extract", {"url": a.url}, lambda data, el: _render_extract(
+                data, a.url, fmt=a.format, max_chars=a.max_chars, elapsed=el))
 
 
 if __name__ == "__main__":

@@ -42,6 +42,32 @@ $CMD --help
 $CMD search "Cloudflare Workers 2026" --format compact --max-results 5
 ```
 
+## Optional: faster local extraction
+
+The CLI runs with zero `pip` dependencies. For faster, private `extract` with
+no external round-trip, install the readability executable — the skill detects
+it on `PATH` automatically:
+
+```bash
+# needs Node; outputs clean Markdown (recommended)
+npm i -g defuddle
+# (or just run `npx defuddle` once to fill the npm cache, no global install)
+```
+
+No config change needed. Without it, `extract` falls back to hosted readers
+(`r.jina.ai`, then `defuddle.md` in series), then the AnySearch API. Each remote
+reader fires only if the prior one fails, so a normal extract costs at most one
+reader's quota.
+
+How the chain fits together — `local` is the default main path (usually
+lands clean); the rest is a fallback safety net, with the AnySearch API as the
+degraded last resort (the only rung that still returns chrome):
+
+![extract reader fallback chain — local is the main path, API is the last-resort dirty path](assets/extract-flow-illustrations/02-fallback-chain-v2.png)
+
+See [references/payload-control.md](anysearch/references/payload-control.md) for
+the full `--reader` backend table.
+
 ## Quick use
 
 ```bash

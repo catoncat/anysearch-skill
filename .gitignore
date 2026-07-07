@@ -12,6 +12,8 @@ __pycache__/
 
 # Local image-gen scratch (committed art lives under assets/)
 .image-gen/
+# illo run manifests are scratch (full prompts + abs paths), not assets
+**/manifest.jsonl
 
 # OS
 .DS_Store
