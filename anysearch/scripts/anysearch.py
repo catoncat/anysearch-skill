@@ -614,6 +614,15 @@ def _dedup_results(results, enabled=True):
 def _skip_lead_noise(body, budget=200):
     if not body:
         return body
+    # Drop a leading run of README badge / image-link lines
+    # (![...](...) or [![...](...)](...)) that survive readability extraction
+    # because the author wrote them. Bounded to the first 2000 chars so a
+    # legitimately image-led body further down is untouched.
+    badge_run = re.match(
+        r"(?:\s*\[?!\[[^\]]*\]\([^)]*\)\]?(?:\([^)]*\))?\s*)+", body[:2000]
+    )
+    if badge_run:
+        body = body[badge_run.end():].lstrip()
     lines = body.lstrip().splitlines()
     consumed, idx = 0, 0
     while idx < len(lines) and consumed < budget:
