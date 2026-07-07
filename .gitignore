@@ -10,5 +10,8 @@ anysearch/.env.*
 __pycache__/
 *.pyc
 
+# Local image-gen scratch (committed art lives under assets/)
+.image-gen/
+
 # OS
 .DS_Store

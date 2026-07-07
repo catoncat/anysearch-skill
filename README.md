@@ -1,8 +1,12 @@
-# anysearch skill
+# AnySearch Skill
 
-Agent-friendly AnySearch: a Pi/Codex-style skill plus a bundled stdlib-only CLI
-that keeps web discovery cheap, then deep-reads only the sources worth putting
-in context.
+<p align="center">
+  <img src="assets/anysearch-mascot-banner.png" alt="AnySearch skill mascot — probe the web, extract what matters" width="100%" />
+</p>
+
+Agent-friendly **AnySearch** for coding agents: a Pi/Codex-style skill plus a bundled stdlib-only CLI that keeps web discovery cheap, then deep-reads only the sources worth putting in context.
+
+**Probe first. Extract only what earns the context.**
 
 ## Install
 
@@ -10,7 +14,7 @@ in context.
 npx skills add catoncat/anysearch-skill --yes --global
 ```
 
-Update an existing install from the published repository:
+Update an existing install:
 
 ```bash
 npx skills update catoncat/anysearch-skill --yes --global
@@ -22,7 +26,7 @@ After install or update, the skill payload is copied to:
 ~/.agents/skills/anysearch/
 ```
 
-The important files are:
+Important files:
 
 ```text
 ~/.agents/skills/anysearch/SKILL.md
@@ -44,19 +48,19 @@ $CMD search "Cloudflare Workers 2026" --format compact --max-results 5
 CMD="python3 ~/.agents/skills/anysearch/scripts/anysearch.py"
 ```
 
-Light discovery:
+**Light discovery**
 
 ```bash
 $CMD search "Cloudflare Workers 2026" --format compact --max-results 5
 ```
 
-Deep-read a selected URL:
+**Deep-read a selected URL**
 
 ```bash
 $CMD extract "https://developers.cloudflare.com/workers/"
 ```
 
-Compare several angles without flooding context:
+**Compare several angles**
 
 ```bash
 $CMD batch_search \
@@ -66,7 +70,7 @@ $CMD batch_search \
   --format compact --max-results 5
 ```
 
-Use a vertical schema safely:
+**Vertical search (schema first)**
 
 ```bash
 $CMD get_sub_domains --domains finance,code
@@ -74,7 +78,7 @@ $CMD search "AAPL" --domain finance --sub_domain finance.quote \
   --sdp type=stock,symbol=AAPL,cn_code= --format compact --max-results 3
 ```
 
-Inspect or create keys when anonymous access is not enough:
+**Keys when anonymous access is not enough**
 
 ```bash
 $CMD keys status
@@ -85,29 +89,20 @@ $CMD --auto_register search "current US inflation rate" --format compact
 
 ## How this differs from official AnySearch
 
-This repository does not replace the official AnySearch service or API. It wraps
-AnySearch for coding agents that need predictable, low-context web research.
+This repository does not replace the official AnySearch service or API. It wraps AnySearch for agents that need predictable, low-context web research.
 
-The wrapper adds:
-
-- **Probe → extract workflow** — search/batch are discovery steps; `extract`
-  deep-reads selected URLs.
-- **Compact discovery by default** — search results render as rank, title, and
-  URL unless the agent asks for snippets or full text.
-- **Context-aware payload controls** — `--format compact|snippet|full`,
-  `--max-chars`, default URL deduplication, and exact rendered-size headers.
-- **Bundled CLI** — `scripts/anysearch.py` uses Python's standard library only;
-  no pip install is required.
-- **Key pool recovery** — saved keys, fallback or round-robin rotation,
-  `register`, and optional `--auto_register` when quota/auth fails.
-- **Live vertical schema discipline** — agents are told to call
-  `get_sub_domains` before structured vertical search instead of guessing
-  `sub_domain` or `--sdp` parameters.
+| What you get | Why it matters |
+|--------------|----------------|
+| **Probe → extract** | Search/batch discover; `extract` deep-reads winners only. |
+| **Compact by default** | Rank, title, URL unless you ask for snippets or full text. |
+| **Payload controls** | `--format compact\|snippet\|full`, `--max-chars`, dedup, size headers. |
+| **Bundled CLI** | `anysearch.py` — stdlib only, no pip install. |
+| **Key pool recovery** | Saved keys, rotation, `register`, `--auto_register`. |
+| **Live vertical schema** | `get_sub_domains` before guessing `sub_domain` / `--sdp`. |
 
 ## Key state
 
-Runtime key state is local to your user account and is not stored in the skill
-install directory:
+Runtime key state is local to your account (not in the skill install dir):
 
 ```text
 macOS:   ~/Library/Application Support/anysearch/keys-state.json
@@ -115,25 +110,22 @@ Linux:   ${XDG_CONFIG_HOME:-~/.config}/anysearch/keys-state.json
 Windows: %APPDATA%\AnySearch\keys-state.json
 ```
 
-Override for tests or unusual deployments:
+Override:
 
 ```bash
 ANYSEARCH_CONFIG_DIR=/custom/path $CMD keys status
 ```
 
-Never commit real API keys. The checked-in
-[`anysearch/keys-state.example.json`](anysearch/keys-state.example.json) is only
-a schema example.
+Never commit real API keys. [`anysearch/keys-state.example.json`](anysearch/keys-state.example.json) is schema-only.
 
 ## Repository layout
 
-The installable skill lives in [`anysearch/`](anysearch/):
-
-- [`anysearch/SKILL.md`](anysearch/SKILL.md) — agent-facing process.
-- [`anysearch/scripts/anysearch.py`](anysearch/scripts/anysearch.py) — bundled CLI.
-- [`anysearch/references/payload-control.md`](anysearch/references/payload-control.md) — payload modes and renderer rules.
-- [`anysearch/references/keys.md`](anysearch/references/keys.md) — key pool details.
-- [`anysearch/references/domains.md`](anysearch/references/domains.md) — static vertical schema snapshot; call `get_sub_domains` live for precision.
+| Path | Role |
+|------|------|
+| [`anysearch/SKILL.md`](anysearch/SKILL.md) | Agent-facing process |
+| [`anysearch/scripts/anysearch.py`](anysearch/scripts/anysearch.py) | Bundled CLI |
+| [`anysearch/references/`](anysearch/references/) | Payload, keys, domains docs |
+| [`assets/anysearch-mascot-banner.png`](assets/anysearch-mascot-banner.png) | README banner art |
 
 ## License
 
