@@ -1,0 +1,19 @@
+README.md
+  s_4cb81c9c005bbf::t_8353dd72afd1c8 62-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d5bfde03e12a326e5d460559248455235bd6a30b",
+  "prompts": {},
+  "sessions": {
+    "s_4cb81c9c005bbf": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f3bff-c9c8-7e84-9b02-ad5eb7f0ac8b",
+        "model": "glm-5.2:cloud"
+      },
+      "human_author": "cat <git@chen.rs>"
+    }
+  }
+}
